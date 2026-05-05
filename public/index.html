@@ -79,7 +79,8 @@
 
     .chartWrap {
       margin-top: 30px;
-      height: 280px;
+      height: 320px;
+      padding: 16px 8px 24px 8px;
     }
 
     canvas {
@@ -116,6 +117,7 @@
   </main>
 
   <script>
+    const DISPLAY_TIME_ZONE = 'America/New_York';
     const glucoseEl = document.getElementById('glucose');
     const trendEl = document.getElementById('trend');
     const updatedEl = document.getElementById('updated');
@@ -163,23 +165,23 @@
             const chart = ctx.chart;
             const { ctx: c, chartArea, scales } = chart;
             if (!chartArea) return 'rgba(255,255,255,.08)';
-                    
+
             const y = scales.y;
             const top = chartArea.top;
             const bottom = chartArea.bottom;
-                    
+
             const pct175 = (y.getPixelForValue(175) - top) / (bottom - top);
             const pct80 = (y.getPixelForValue(80) - top) / (bottom - top);
-                    
+
             const gradient = c.createLinearGradient(0, top, 0, bottom);
-                    
+
             gradient.addColorStop(0, 'rgba(255, 55, 80, 0.18)');
             gradient.addColorStop(Math.max(0, pct175 - 0.01), 'rgba(255, 55, 80, 0.12)');
             gradient.addColorStop(pct175, 'rgba(0, 210, 130, 0.16)');
             gradient.addColorStop(pct80, 'rgba(0, 210, 130, 0.16)');
             gradient.addColorStop(Math.min(1, pct80 + 0.01), 'rgba(255, 55, 80, 0.12)');
             gradient.addColorStop(1, 'rgba(255, 55, 80, 0.18)');
-                    
+
             return gradient;
           },
           fill: true
@@ -188,6 +190,14 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 16,
+            right: 12,
+            bottom: 28,
+            left: 8
+          }
+        },
         plugins: {
           legend: { display: false }
         },
@@ -217,11 +227,20 @@
       trendEl.textContent = reading.trend || '→';
 
       const ts = reading.timestamp ? new Date(reading.timestamp) : new Date();
-      updatedEl.textContent = ts.toLocaleString();
+      updatedEl.textContent = ts.toLocaleString([], {
+        timeZone: DISPLAY_TIME_ZONE,
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit'
+      });
 
       statusEl.textContent = 'live';
 
-      const label = ts.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const label = ts.toLocaleTimeString([], {
+        timeZone: DISPLAY_TIME_ZONE,
+        hour: 'numeric',
+        minute: '2-digit'
+      });
 
       if (value) {
         chart.data.labels.push(label);
