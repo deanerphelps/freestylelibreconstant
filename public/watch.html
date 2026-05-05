@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { background:black;color:white;text-align:center;font-size:40px; }
+</style>
+</head>
+<body>
+<div id="g">--</div>
+<div id="t">→</div>
+<script>
+async function update() {
+  const res = await fetch('/api/latest');
+  const d = await res.json();
+  document.getElementById('g').textContent = d.glucose;
+  document.getElementById('t').textContent = d.trend;
+}
+setInterval(update,30000);
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "libre3-railway-ready",
+  "version": "1.0.0",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ws": "^8.13.0",
+    "libre-link-unofficial-api": "latest",
+    "dotenv": "^16.0.0"
+  }
+}

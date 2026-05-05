@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Libre Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family:sans-serif; text-align:center; }
+  #glucose { font-size:60px; }
+</style>
+</head>
+<body>
+<h1 id="glucose">--</h1>
+<h2 id="trend">→</h2>
+<canvas id="chart" width="300" height="150"></canvas>
+
+<script>
+const ctx = document.getElementById('chart').getContext('2d');
+const data = {
+  labels: [],
+  datasets: [{ label: 'Glucose', data: [] }]
+};
+const chart = new Chart(ctx, { type: 'line', data });
+
+async function update() {
+  const res = await fetch('/api/latest');
+  const d = await res.json();
+
+  document.getElementById('glucose').textContent = d.glucose;
+  document.getElementById('trend').textContent = d.trend;
+
+  data.labels.push(new Date(d.timestamp).toLocaleTimeString());
+  data.datasets[0].data.push(d.glucose);
+
+  if (data.labels.length > 20) {
+    data.labels.shift();
+    data.datasets[0].data.shift();
+  }
+
+  chart.update();
+}
+
+setInterval(update, 30000);
+update();
+</script>
+</body>
+</html>
