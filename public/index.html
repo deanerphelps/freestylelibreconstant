@@ -121,8 +121,35 @@
     const updatedEl = document.getElementById('updated');
     const statusEl = document.getElementById('status');
 
+
+    const glucoseBandsPlugin = {
+      id: 'glucoseBands',
+      beforeDatasetsDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        if (!chartArea) return;
+      
+        const y = scales.y;
+        const top = chartArea.top;
+        const bottom = chartArea.bottom;
+        const y80 = y.getPixelForValue(80);
+        const y175 = y.getPixelForValue(175);
+      
+        ctx.save();
+      
+        ctx.fillStyle = 'rgba(255, 55, 80, 0.10)';
+        ctx.fillRect(chartArea.left, top, chartArea.right - chartArea.left, y175 - top);
+        ctx.fillRect(chartArea.left, y80, chartArea.right - chartArea.left, bottom - y80);
+      
+        ctx.fillStyle = 'rgba(0, 210, 130, 0.12)';
+        ctx.fillRect(chartArea.left, y175, chartArea.right - chartArea.left, y80 - y175);
+      
+        ctx.restore();
+      }
+    };
+
     const chart = new Chart(document.getElementById('chart'), {
       type: 'line',
+      plugins: [glucoseBandsPlugin],
       data: {
         labels: [],
         datasets: [{
@@ -134,15 +161,25 @@
           borderColor: '#f8f8fb',
           backgroundColor: (ctx) => {
             const chart = ctx.chart;
-            const {ctx: c, chartArea} = chart;
-            if (!chartArea) return null;
-
-            const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-
-            gradient.addColorStop(0, 'rgba(255,0,0,0.05)');   // high
-            gradient.addColorStop(0.4, 'rgba(0,255,0,0.05)'); // in range
-            gradient.addColorStop(0.7, 'rgba(255,0,0,0.05)'); // low
-
+            const { ctx: c, chartArea, scales } = chart;
+            if (!chartArea) return 'rgba(255,255,255,.08)';
+                    
+            const y = scales.y;
+            const top = chartArea.top;
+            const bottom = chartArea.bottom;
+                    
+            const pct175 = (y.getPixelForValue(175) - top) / (bottom - top);
+            const pct80 = (y.getPixelForValue(80) - top) / (bottom - top);
+                    
+            const gradient = c.createLinearGradient(0, top, 0, bottom);
+                    
+            gradient.addColorStop(0, 'rgba(255, 55, 80, 0.18)');
+            gradient.addColorStop(Math.max(0, pct175 - 0.01), 'rgba(255, 55, 80, 0.12)');
+            gradient.addColorStop(pct175, 'rgba(0, 210, 130, 0.16)');
+            gradient.addColorStop(pct80, 'rgba(0, 210, 130, 0.16)');
+            gradient.addColorStop(Math.min(1, pct80 + 0.01), 'rgba(255, 55, 80, 0.12)');
+            gradient.addColorStop(1, 'rgba(255, 55, 80, 0.18)');
+                    
             return gradient;
           },
           fill: true
