@@ -91,6 +91,57 @@
     .stale {
       color: #ffb86b;
     }
+
+    .warmupBox {
+  margin-top: 22px;
+}
+
+#warmupBox button {
+  background: #2c2c3a;
+  color: #f8f8fb;
+  border: 1px solid #3b3b50;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#warmupBox button:hover {
+  background: #39394a;
+}
+
+#warmupPanel {
+  margin-top: 14px;
+  background: #11111a;
+  border: 1px solid #303040;
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.warmupTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  color: #ffd08a;
+}
+
+.progressOuter {
+  width: 100%;
+  height: 14px;
+  background: #2a2a36;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressInner {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #ffb86b, #00d282);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
   </style>
 </head>
 <body>
@@ -109,6 +160,21 @@
     <div class="meta">
       <span>Updated: <span id="updated">--</span></span>
       <span>Source: LibreLinkUp</span>
+    </div>
+
+    <div class="warmupBox" id="warmupBox">
+      <button id="startWarmupBtn">Start sensor timer</button>
+    
+      <div id="warmupPanel" hidden>
+        <div class="warmupTop">
+          <strong id="warmupText">Sensor ready in -- min</strong>
+          <button id="cancelWarmupBtn">Cancel</button>
+        </div>
+    
+        <div class="progressOuter">
+          <div class="progressInner" id="warmupProgress"></div>
+        </div>
+      </div>
     </div>
 
     <div class="chartWrap">
@@ -220,6 +286,89 @@
         }
       }
     });
+
+    const startWarmupBtn = document.getElementById('startWarmupBtn');
+const cancelWarmupBtn = document.getElementById('cancelWarmupBtn');
+const warmupPanel = document.getElementById('warmupPanel');
+const warmupText = document.getElementById('warmupText');
+const warmupProgress = document.getElementById('warmupProgress');
+
+let warmupTimer = null;
+
+function startWarmup(minutes) {
+  const totalMs = minutes * 60 * 1000;
+  const startedAt = Date.now();
+  const endsAt = startedAt + totalMs;
+
+  localStorage.setItem('sensorWarmup', JSON.stringify({
+    startedAt,
+    endsAt,
+    totalMs
+  }));
+
+  renderWarmup();
+}
+
+function stopWarmup() {
+  localStorage.removeItem('sensorWarmup');
+  warmupPanel.hidden = true;
+  startWarmupBtn.hidden = false;
+
+  if (warmupTimer) {
+    clearInterval(warmupTimer);
+    warmupTimer = null;
+  }
+}
+
+function renderWarmup() {
+  const saved = localStorage.getItem('sensorWarmup');
+
+  if (!saved) {
+    warmupPanel.hidden = true;
+    startWarmupBtn.hidden = false;
+    return;
+  }
+
+  const { startedAt, endsAt, totalMs } = JSON.parse(saved);
+  const now = Date.now();
+  const remainingMs = Math.max(0, endsAt - now);
+  const elapsedMs = Math.max(0, now - startedAt);
+  const percent = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+  const remainingMinutes = Math.ceil(remainingMs / 60000);
+
+  warmupPanel.hidden = false;
+  startWarmupBtn.hidden = true;
+
+  if (remainingMs <= 0) {
+    warmupText.textContent = 'Sensor should be ready now';
+    warmupProgress.style.width = '100%';
+    statusEl.textContent = 'sensor ready';
+    return;
+  }
+
+  warmupText.textContent = `Sensor ready in ${remainingMinutes} min`;
+  warmupProgress.style.width = `${percent}%`;
+  statusEl.textContent = `warming up (${remainingMinutes}m left)`;
+}
+
+startWarmupBtn.addEventListener('click', () => {
+  const input = prompt('How many minutes until the sensor is ready?', '60');
+  if (!input) return;
+
+  const minutes = Number(input);
+
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    alert('Please enter a valid number of minutes.');
+    return;
+  }
+
+  startWarmup(minutes);
+});
+
+cancelWarmupBtn.addEventListener('click', stopWarmup);
+
+renderWarmup();
+warmupTimer = setInterval(renderWarmup, 1000);
 
     function applyReading(reading) {
       const value = reading.glucose ?? reading.value;
