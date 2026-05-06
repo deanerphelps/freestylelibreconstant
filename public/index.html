@@ -79,8 +79,10 @@
 
     .chartWrap {
       margin-top: 30px;
-      height: 320px;
-      padding: 16px 8px 24px 8px;
+      height: 340px;
+      padding: 24px 16px 42px 16px;
+      box-sizing: border-box;
+      overflow: visible;
     }
 
     canvas {
@@ -225,7 +227,11 @@
           data: [],
           tension: 0.35,
           borderWidth: 3,
-          pointRadius: 2,
+          pointRadius: 4,
+          pointHoverRadius: 7,
+          pointBackgroundColor: '#f8f8fb',
+          pointBorderColor: '#f8f8fb',
+          pointBorderWidth: 2,
           borderColor: '#f8f8fb',
           backgroundColor: (ctx) => {
             const chart = ctx.chart;
@@ -256,12 +262,13 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        clip: false,
         layout: {
           padding: {
-            top: 16,
-            right: 12,
-            bottom: 28,
-            left: 8
+            top: 28,
+            right: 18,
+            bottom: 34,
+            left: 12
           }
         },
         plugins: {
@@ -269,9 +276,18 @@
         },
         scales: {
           x: {
-            ticks: { color: '#9a9aab' },
-            grid: { color: 'rgba(255,255,255,.06)' }
+          ticks: {
+            color: '#9a9aab',
+            maxTicksLimit: 6,
+            autoSkip: true,
+            maxRotation: 0,
+            minRotation: 0,
+            padding: 12
           },
+          grid: {
+            color: 'rgba(255,255,255,.06)'
+          }
+        },
           y: {
             min: 50,
             max: 350,
