@@ -4,8 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Libre 3 Live Glucose</title>
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
   <style>
     body {
       margin: 0;
@@ -18,7 +19,7 @@
     }
 
     .card {
-      width: min(920px, calc(100vw - 32px));
+      width: min(980px, calc(100vw - 32px));
       background: #171722;
       border: 1px solid #303040;
       border-radius: 24px;
@@ -30,12 +31,12 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 28px;
+      margin-bottom: 36px;
     }
 
     .title {
       font-weight: 700;
-      color: #d7d7e2;
+      color: #f8f8fb;
     }
 
     .pill {
@@ -43,45 +44,98 @@
       border-radius: 999px;
       padding: 8px 12px;
       font-size: 13px;
+      color: #fff;
     }
 
     .reading {
       display: flex;
       align-items: baseline;
-      gap: 14px;
+      gap: 16px;
+      min-height: 150px;
     }
 
     #glucose {
-      font-size: clamp(96px, 18vw, 180px);
-      line-height: .9;
+      font-size: clamp(96px, 16vw, 180px);
+      line-height: 0.9;
       font-weight: 900;
       letter-spacing: -8px;
     }
 
     .unit {
-      font-size: 28px;
-      color: #c8c8d4;
+      font-size: 30px;
+      color: #f8f8fb;
     }
 
     #trend {
       margin-left: auto;
-      font-size: 60px;
+      font-size: 58px;
       font-weight: 700;
     }
 
     .meta {
       margin-top: 18px;
-      color: #c8c8d4;
+      color: #f8f8fb;
       display: flex;
       gap: 22px;
       flex-wrap: wrap;
       font-size: 16px;
     }
 
+    .warmupBox {
+      margin-top: 22px;
+    }
+
+    #warmupBox button {
+      background: #2c2c3a;
+      color: #f8f8fb;
+      border: 1px solid #3b3b50;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    #warmupBox button:hover {
+      background: #39394a;
+    }
+
+    #warmupPanel {
+      margin-top: 14px;
+      background: #11111a;
+      border: 1px solid #303040;
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .warmupTop {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      color: #ffd08a;
+    }
+
+    .progressOuter {
+      width: 100%;
+      height: 14px;
+      background: #2a2a36;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progressInner {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #ffb86b, #00d282);
+      border-radius: 999px;
+      transition: width 0.4s ease;
+    }
+
     .chartWrap {
-      margin-top: 30px;
-      height: 460px;
-      padding: 28px 18px 48px 18px;
+      margin-top: 44px;
+      height: 440px;
+      padding: 22px 14px 38px 14px;
       box-sizing: border-box;
       overflow: visible;
     }
@@ -90,63 +144,9 @@
       width: 100% !important;
       height: 100% !important;
     }
-
-    .stale {
-      color: #ffb86b;
-    }
-
-    .warmupBox {
-  margin-top: 22px;
-}
-
-#warmupBox button {
-  background: #2c2c3a;
-  color: #f8f8fb;
-  border: 1px solid #3b3b50;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-#warmupBox button:hover {
-  background: #39394a;
-}
-
-#warmupPanel {
-  margin-top: 14px;
-  background: #11111a;
-  border: 1px solid #303040;
-  border-radius: 16px;
-  padding: 14px;
-}
-
-.warmupTop {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 12px;
-  color: #ffd08a;
-}
-
-.progressOuter {
-  width: 100%;
-  height: 14px;
-  background: #2a2a36;
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.progressInner {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #ffb86b, #00d282);
-  border-radius: 999px;
-  transition: width 0.4s ease;
-}
   </style>
 </head>
+
 <body>
   <main class="card">
     <div class="top">
@@ -167,13 +167,13 @@
 
     <div class="warmupBox" id="warmupBox">
       <button id="startWarmupBtn">Start sensor timer</button>
-    
+
       <div id="warmupPanel" hidden>
         <div class="warmupTop">
           <strong id="warmupText">Sensor ready in -- min</strong>
           <button id="cancelWarmupBtn">Cancel</button>
         </div>
-    
+
         <div class="progressOuter">
           <div class="progressInner" id="warmupProgress"></div>
         </div>
@@ -187,33 +187,39 @@
 
   <script>
     const DISPLAY_TIME_ZONE = 'America/New_York';
+
     const glucoseEl = document.getElementById('glucose');
     const trendEl = document.getElementById('trend');
     const updatedEl = document.getElementById('updated');
     const statusEl = document.getElementById('status');
 
+    const startWarmupBtn = document.getElementById('startWarmupBtn');
+    const cancelWarmupBtn = document.getElementById('cancelWarmupBtn');
+    const warmupPanel = document.getElementById('warmupPanel');
+    const warmupText = document.getElementById('warmupText');
+    const warmupProgress = document.getElementById('warmupProgress');
 
     const glucoseBandsPlugin = {
       id: 'glucoseBands',
       beforeDatasetsDraw(chart) {
         const { ctx, chartArea, scales } = chart;
         if (!chartArea) return;
-      
+
         const y = scales.y;
         const top = chartArea.top;
         const bottom = chartArea.bottom;
         const y80 = y.getPixelForValue(80);
         const y175 = y.getPixelForValue(175);
-      
+
         ctx.save();
-      
+
         ctx.fillStyle = 'rgba(255, 55, 80, 0.10)';
         ctx.fillRect(chartArea.left, top, chartArea.right - chartArea.left, y175 - top);
         ctx.fillRect(chartArea.left, y80, chartArea.right - chartArea.left, bottom - y80);
-      
+
         ctx.fillStyle = 'rgba(0, 210, 130, 0.12)';
         ctx.fillRect(chartArea.left, y175, chartArea.right - chartArea.left, y80 - y175);
-      
+
         ctx.restore();
       }
     };
@@ -228,36 +234,15 @@
           data: [],
           tension: 0.35,
           borderWidth: 3,
+          borderColor: '#f8f8fb',
+          backgroundColor: 'rgba(255,255,255,.06)',
+          fill: false,
+
           pointRadius: 4,
           pointHoverRadius: 7,
           pointBackgroundColor: '#f8f8fb',
           pointBorderColor: '#f8f8fb',
-          pointBorderWidth: 2,
-          borderColor: '#f8f8fb',
-          backgroundColor: (ctx) => {
-            const chart = ctx.chart;
-            const { ctx: c, chartArea, scales } = chart;
-            if (!chartArea) return 'rgba(255,255,255,.08)';
-
-            const y = scales.y;
-            const top = chartArea.top;
-            const bottom = chartArea.bottom;
-
-            const pct175 = (y.getPixelForValue(175) - top) / (bottom - top);
-            const pct80 = (y.getPixelForValue(80) - top) / (bottom - top);
-
-            const gradient = c.createLinearGradient(0, top, 0, bottom);
-
-            gradient.addColorStop(0, 'rgba(255, 55, 80, 0.18)');
-            gradient.addColorStop(Math.max(0, pct175 - 0.01), 'rgba(255, 55, 80, 0.12)');
-            gradient.addColorStop(pct175, 'rgba(0, 210, 130, 0.16)');
-            gradient.addColorStop(pct80, 'rgba(0, 210, 130, 0.16)');
-            gradient.addColorStop(Math.min(1, pct80 + 0.01), 'rgba(255, 55, 80, 0.12)');
-            gradient.addColorStop(1, 'rgba(255, 55, 80, 0.18)');
-
-            return gradient;
-          },
-          fill: true
+          pointBorderWidth: 2
         }]
       },
       options: {
@@ -277,49 +262,14 @@
         },
         scales: {
           x: {
-            type: 'time',
-            min: Date.now() - 60 * 60 * 1000,
-            max: Date.now(),
-
-            time: {
-              unit: 'minute',
-              stepSize: 10,
-              displayFormats: {
-                minute: 'h:mm a'
-              }
-            },
-
-            afterBuildTicks: (axis) => {
-              const now = new Date(chart.options.scales.x.max || Date.now());
-              now.setSeconds(0, 0);
-
-              const end = new Date(now);
-              end.setMinutes(Math.ceil(end.getMinutes() / 10) * 10);
-
-              const start = new Date(end.getTime() - 60 * 60 * 1000);
-
-              const ticks = [];
-              for (let t = start.getTime(); t <= end.getTime(); t += 10 * 60 * 1000) {
-                ticks.push({ value: t });
-              }
-
-              axis.ticks = ticks;
-            },
-
             ticks: {
               color: '#9a9aab',
+              maxTicksLimit: 7,
+              autoSkip: true,
               maxRotation: 0,
               minRotation: 0,
-              padding: 12,
-              callback: function(value) {
-                return new Date(value).toLocaleTimeString('en-US', {
-                  timeZone: DISPLAY_TIME_ZONE,
-                  hour: 'numeric',
-                  minute: '2-digit'
-                });
-              }
+              padding: 12
             },
-
             grid: {
               color: 'rgba(255,255,255,.06)'
             }
@@ -329,7 +279,8 @@
             max: 350,
             ticks: {
               color: '#9a9aab',
-              stepSize: 50
+              stepSize: 50,
+              padding: 8
             },
             grid: {
               color: 'rgba(255,255,255,.08)'
@@ -339,97 +290,26 @@
       }
     });
 
-    const startWarmupBtn = document.getElementById('startWarmupBtn');
-const cancelWarmupBtn = document.getElementById('cancelWarmupBtn');
-const warmupPanel = document.getElementById('warmupPanel');
-const warmupText = document.getElementById('warmupText');
-const warmupProgress = document.getElementById('warmupProgress');
-
-let warmupTimer = null;
-
-function startWarmup(minutes) {
-  const totalMs = minutes * 60 * 1000;
-  const startedAt = Date.now();
-  const endsAt = startedAt + totalMs;
-
-  localStorage.setItem('sensorWarmup', JSON.stringify({
-    startedAt,
-    endsAt,
-    totalMs
-  }));
-
-  renderWarmup();
-}
-
-function stopWarmup() {
-  localStorage.removeItem('sensorWarmup');
-  warmupPanel.hidden = true;
-  startWarmupBtn.hidden = false;
-
-  if (warmupTimer) {
-    clearInterval(warmupTimer);
-    warmupTimer = null;
-  }
-}
-
-function renderWarmup() {
-  const saved = localStorage.getItem('sensorWarmup');
-
-  if (!saved) {
-    warmupPanel.hidden = true;
-    startWarmupBtn.hidden = false;
-    return;
-  }
-
-  const { startedAt, endsAt, totalMs } = JSON.parse(saved);
-  const now = Date.now();
-  const remainingMs = Math.max(0, endsAt - now);
-  const elapsedMs = Math.max(0, now - startedAt);
-  const percent = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
-  const remainingMinutes = Math.ceil(remainingMs / 60000);
-
-  warmupPanel.hidden = false;
-  startWarmupBtn.hidden = true;
-
-  if (remainingMs <= 0) {
-    warmupText.textContent = 'Sensor should be ready now';
-    warmupProgress.style.width = '100%';
-    statusEl.textContent = 'sensor ready';
-    return;
-  }
-
-  warmupText.textContent = `Sensor ready in ${remainingMinutes} min`;
-  warmupProgress.style.width = `${percent}%`;
-  statusEl.textContent = `warming up (${remainingMinutes}m left)`;
-}
-
-startWarmupBtn.addEventListener('click', () => {
-  const input = prompt('How many minutes until the sensor is ready?', '60');
-  if (!input) return;
-
-  const minutes = Number(input);
-
-  if (!Number.isFinite(minutes) || minutes <= 0) {
-    alert('Please enter a valid number of minutes.');
-    return;
-  }
-
-  startWarmup(minutes);
-});
-
-cancelWarmupBtn.addEventListener('click', stopWarmup);
-
-renderWarmup();
-warmupTimer = setInterval(renderWarmup, 1000);
-
     function applyReading(reading) {
       const value = reading.glucose ?? reading.value;
-      glucoseEl.textContent = value ?? '--';
-      trendEl.textContent = reading.trend || '→';
+
+      if (value === null || value === undefined) {
+        glucoseEl.textContent = '--';
+        trendEl.textContent = reading.trend || '⏳';
+        statusEl.textContent = reading.message || 'waiting';
+        return;
+      }
 
       const ts = reading.timestamp ? new Date(reading.timestamp) : new Date();
-      updatedEl.textContent = ts.toLocaleString([], {
+
+      glucoseEl.textContent = value;
+      trendEl.textContent = reading.trend || '→';
+
+      updatedEl.textContent = ts.toLocaleString('en-US', {
         timeZone: DISPLAY_TIME_ZONE,
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
         second: '2-digit'
@@ -437,43 +317,34 @@ warmupTimer = setInterval(renderWarmup, 1000);
 
       statusEl.textContent = 'live';
 
-      const label = ts.toLocaleTimeString([], {
+      const label = ts.toLocaleTimeString('en-US', {
         timeZone: DISPLAY_TIME_ZONE,
         hour: 'numeric',
         minute: '2-digit'
       });
 
-      if (value) {
-        const pointTime = ts.getTime();
+      chart.data.labels.push(label);
+      chart.data.datasets[0].data.push(value);
 
-        chart.data.datasets[0].data.push({
-          x: pointTime,
-          y: value
-        });
-
-        const chartEnd = pointTime;
-        const chartStart = chartEnd - 60 * 60 * 1000;
-
-        chart.data.datasets[0].data = chart.data.datasets[0].data.filter(point => {
-          return point.x >= chartStart && point.x <= chartEnd;
-        });
-
-        chart.options.scales.x.min = chartStart;
-        chart.options.scales.x.max = chartEnd;
-
-        chart.update();
+      if (chart.data.labels.length > 60) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
       }
+
+      chart.update();
     }
 
     async function loadInitial() {
       try {
         const historyRes = await fetch('/api/history');
+
         if (historyRes.ok) {
           const history = await historyRes.json();
           history.slice(-60).forEach(applyReading);
         }
 
         const latestRes = await fetch('/api/latest');
+
         if (latestRes.ok) {
           applyReading(await latestRes.json());
         }
@@ -486,20 +357,104 @@ warmupTimer = setInterval(renderWarmup, 1000);
       const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-      ws.onopen = () => statusEl.textContent = 'live';
+      ws.onopen = () => {
+        statusEl.textContent = 'live';
+      };
+
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        if (msg.type === 'glucose') applyReading(msg.data);
-        if (msg.type === 'error') statusEl.textContent = 'error';
+
+        if (msg.type === 'glucose') {
+          applyReading(msg.data);
+        }
+
+        if (msg.type === 'error') {
+          statusEl.textContent = 'error';
+        }
       };
+
       ws.onclose = () => {
         statusEl.textContent = 'reconnecting';
         setTimeout(connectWs, 5000);
       };
     }
 
+    let warmupTimer = null;
+
+    function startWarmup(minutes) {
+      const totalMs = minutes * 60 * 1000;
+      const startedAt = Date.now();
+      const endsAt = startedAt + totalMs;
+
+      localStorage.setItem('sensorWarmup', JSON.stringify({
+        startedAt,
+        endsAt,
+        totalMs
+      }));
+
+      renderWarmup();
+    }
+
+    function stopWarmup() {
+      localStorage.removeItem('sensorWarmup');
+      warmupPanel.hidden = true;
+      startWarmupBtn.hidden = false;
+
+      if (warmupTimer) {
+        clearInterval(warmupTimer);
+        warmupTimer = null;
+      }
+    }
+
+    function renderWarmup() {
+      const saved = localStorage.getItem('sensorWarmup');
+
+      if (!saved) {
+        warmupPanel.hidden = true;
+        startWarmupBtn.hidden = false;
+        return;
+      }
+
+      const { startedAt, endsAt, totalMs } = JSON.parse(saved);
+      const now = Date.now();
+      const remainingMs = Math.max(0, endsAt - now);
+      const elapsedMs = Math.max(0, now - startedAt);
+      const percent = Math.min(100, Math.round((elapsedMs / totalMs) * 100));
+      const remainingMinutes = Math.ceil(remainingMs / 60000);
+
+      warmupPanel.hidden = false;
+      startWarmupBtn.hidden = true;
+
+      if (remainingMs <= 0) {
+        warmupText.textContent = 'Sensor should be ready now';
+        warmupProgress.style.width = '100%';
+        return;
+      }
+
+      warmupText.textContent = `Sensor ready in ${remainingMinutes} min`;
+      warmupProgress.style.width = `${percent}%`;
+    }
+
+    startWarmupBtn.addEventListener('click', () => {
+      const input = prompt('How many minutes until the sensor is ready?', '60');
+      if (!input) return;
+
+      const minutes = Number(input);
+
+      if (!Number.isFinite(minutes) || minutes <= 0) {
+        alert('Please enter a valid number of minutes.');
+        return;
+      }
+
+      startWarmup(minutes);
+    });
+
+    cancelWarmupBtn.addEventListener('click', stopWarmup);
+
     loadInitial();
     connectWs();
+    renderWarmup();
+    warmupTimer = setInterval(renderWarmup, 1000);
   </script>
 </body>
 </html>
