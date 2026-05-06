@@ -278,12 +278,11 @@
         scales: {
           x: {
             type: 'time',
-            min: Date.now() - 60 * 60 * 1000,
-            max: Date.now(),
 
             time: {
               unit: 'minute',
               stepSize: 10,
+              round: 'minute',
               displayFormats: {
                 minute: 'h:mm a'
               }
@@ -291,10 +290,28 @@
 
             ticks: {
               color: '#9a9aab',
-              autoSkip: false,
+              source: 'auto',
+              autoSkip: true,
+              maxTicksLimit: 7,
               maxRotation: 0,
               minRotation: 0,
-              padding: 12
+              padding: 12,
+
+              callback: function(value) {
+                const d = new Date(value);
+
+                const minutes = d.getMinutes();
+
+                if (minutes % 10 !== 0) {
+                  return '';
+                }
+
+                return d.toLocaleTimeString('en-US', {
+                  timeZone: DISPLAY_TIME_ZONE,
+                  hour: 'numeric',
+                  minute: '2-digit'
+                });
+              }
             },
 
             grid: {
