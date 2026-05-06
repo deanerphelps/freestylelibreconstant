@@ -290,7 +290,7 @@
             },
 
             afterBuildTicks: (axis) => {
-              const now = new Date();
+              const now = new Date(chart.options.scales.x.max || Date.now());
               now.setSeconds(0, 0);
 
               const end = new Date(now);
@@ -444,19 +444,22 @@ warmupTimer = setInterval(renderWarmup, 1000);
       });
 
       if (value) {
+        const pointTime = ts.getTime();
+
         chart.data.datasets[0].data.push({
-          x: ts.getTime(),
+          x: pointTime,
           y: value
         });
 
-        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        const chartEnd = pointTime;
+        const chartStart = chartEnd - 60 * 60 * 1000;
 
         chart.data.datasets[0].data = chart.data.datasets[0].data.filter(point => {
-          return point.x >= oneHourAgo;
+          return point.x >= chartStart && point.x <= chartEnd;
         });
 
-        chart.options.scales.x.min = oneHourAgo;
-        chart.options.scales.x.max = Date.now();
+        chart.options.scales.x.min = chartStart;
+        chart.options.scales.x.max = chartEnd;
 
         chart.update();
       }
