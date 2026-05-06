@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Libre 3 Live Glucose</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
   <style>
     body {
       margin: 0;
@@ -79,8 +80,8 @@
 
     .chartWrap {
       margin-top: 30px;
-      height: 340px;
-      padding: 24px 16px 42px 16px;
+      height: 460px;
+      padding: 28px 18px 48px 18px;
       box-sizing: border-box;
       overflow: visible;
     }
@@ -276,18 +277,30 @@
         },
         scales: {
           x: {
-          ticks: {
-            color: '#9a9aab',
-            maxTicksLimit: 6,
-            autoSkip: true,
-            maxRotation: 0,
-            minRotation: 0,
-            padding: 12
+            type: 'time',
+            min: Date.now() - 60 * 60 * 1000,
+            max: Date.now(),
+
+            time: {
+              unit: 'minute',
+              stepSize: 10,
+              displayFormats: {
+                minute: 'h:mm a'
+              }
+            },
+
+            ticks: {
+              color: '#9a9aab',
+              autoSkip: false,
+              maxRotation: 0,
+              minRotation: 0,
+              padding: 12
+            },
+
+            grid: {
+              color: 'rgba(255,255,255,.06)'
+            }
           },
-          grid: {
-            color: 'rgba(255,255,255,.06)'
-          }
-        },
           y: {
             min: 50,
             max: 350,
@@ -408,15 +421,25 @@ warmupTimer = setInterval(renderWarmup, 1000);
       });
 
       if (value) {
-        chart.data.labels.push(label);
-        chart.data.datasets[0].data.push(value);
+        chart.data.labels.push(ts);
+          chart.data.datasets[0].data.push({
+            x: ts,
+            y: value
+          });
+          
+          const oneHourAgo = Date.now() - 60 * 60 * 1000;
+          
+          const filtered = chart.data.datasets[0].data.filter(point => {
+            return new Date(point.x).getTime() >= oneHourAgo;
+          });
+          
+          chart.data.datasets[0].data = filtered;
+          chart.data.labels = filtered.map(point => point.x);
+          
+          chart.options.scales.x.min = Date.now() - 60 * 60 * 1000;
+          chart.options.scales.x.max = Date.now();
 
-        if (chart.data.labels.length > 60) {
-          chart.data.labels.shift();
-          chart.data.datasets[0].data.shift();
-        }
-
-        chart.update();
+          chart.update();
       }
     }
 
