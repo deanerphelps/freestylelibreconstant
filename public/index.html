@@ -278,35 +278,41 @@
         scales: {
           x: {
             type: 'time',
+            min: Date.now() - 60 * 60 * 1000,
+            max: Date.now(),
 
             time: {
               unit: 'minute',
               stepSize: 10,
-              round: 'minute',
               displayFormats: {
                 minute: 'h:mm a'
               }
             },
 
+            afterBuildTicks: (axis) => {
+              const now = new Date();
+              now.setSeconds(0, 0);
+
+              const end = new Date(now);
+              end.setMinutes(Math.ceil(end.getMinutes() / 10) * 10);
+
+              const start = new Date(end.getTime() - 60 * 60 * 1000);
+
+              const ticks = [];
+              for (let t = start.getTime(); t <= end.getTime(); t += 10 * 60 * 1000) {
+                ticks.push({ value: t });
+              }
+
+              axis.ticks = ticks;
+            },
+
             ticks: {
               color: '#9a9aab',
-              source: 'auto',
-              autoSkip: true,
-              maxTicksLimit: 7,
               maxRotation: 0,
               minRotation: 0,
               padding: 12,
-
               callback: function(value) {
-                const d = new Date(value);
-
-                const minutes = d.getMinutes();
-
-                if (minutes % 10 !== 0) {
-                  return '';
-                }
-
-                return d.toLocaleTimeString('en-US', {
+                return new Date(value).toLocaleTimeString('en-US', {
                   timeZone: DISPLAY_TIME_ZONE,
                   hour: 'numeric',
                   minute: '2-digit'
@@ -438,25 +444,21 @@ warmupTimer = setInterval(renderWarmup, 1000);
       });
 
       if (value) {
-        chart.data.labels.push(ts);
-          chart.data.datasets[0].data.push({
-            x: ts,
-            y: value
-          });
-          
-          const oneHourAgo = Date.now() - 60 * 60 * 1000;
-          
-          const filtered = chart.data.datasets[0].data.filter(point => {
-            return new Date(point.x).getTime() >= oneHourAgo;
-          });
-          
-          chart.data.datasets[0].data = filtered;
-          chart.data.labels = filtered.map(point => point.x);
-          
-          chart.options.scales.x.min = Date.now() - 60 * 60 * 1000;
-          chart.options.scales.x.max = Date.now();
+        chart.data.datasets[0].data.push({
+          x: ts.getTime(),
+          y: value
+        });
 
-          chart.update();
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+
+        chart.data.datasets[0].data = chart.data.datasets[0].data.filter(point => {
+          return point.x >= oneHourAgo;
+        });
+
+        chart.options.scales.x.min = oneHourAgo;
+        chart.options.scales.x.max = Date.now();
+
+        chart.update();
       }
     }
 
