@@ -126,6 +126,22 @@ app.get('/watch', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'watch.html'));
 });
 
+app.get('/api/libre-debug', async (_req, res) => {
+  try {
+    const connections = await client.fetchConnections();
+
+    res.json({
+      count: connections?.length || 0,
+      sampleKeys: connections?.[0] ? Object.keys(connections[0]) : [],
+      firstConnection: connections?.[0] || null
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err?.message || String(err)
+    });
+  }
+});
+
 const server = app.listen(PORT, async () => {
   console.log(`Libre dashboard running on port ${PORT}`);
 
