@@ -328,7 +328,7 @@
       chart.data.labels.push(label);
       chart.data.datasets[0].data.push(value);
 
-      if (chart.data.labels.length > 120) {
+      if (chart.data.labels.length > 240) {
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
       }
