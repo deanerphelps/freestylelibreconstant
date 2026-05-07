@@ -264,7 +264,7 @@
           x: {
             ticks: {
               color: '#9a9aab',
-              maxTicksLimit: 7,
+              maxTicksLimit: 8,
               autoSkip: true,
               maxRotation: 0,
               minRotation: 0,
@@ -326,7 +326,7 @@
       chart.data.labels.push(label);
       chart.data.datasets[0].data.push(value);
 
-      if (chart.data.labels.length > 60) {
+      if (chart.data.labels.length > 120) {
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
       }
