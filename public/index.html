@@ -144,6 +144,79 @@
       width: 100% !important;
       height: 100% !important;
     }
+
+    .calcPanel {
+  margin-top: 22px;
+  background: #11111a;
+  border: 1px solid #303040;
+  border-radius: 18px;
+  padding: 16px;
+  max-width: 420px;
+}
+
+.calcHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: baseline;
+  margin-bottom: 12px;
+}
+
+.calcHeader h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+#calcGlucose {
+  color: #b9b9c8;
+  font-size: 13px;
+}
+
+.calcLabel {
+  display: block;
+  color: #d7d7e2;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.calcLabel input {
+  width: 100%;
+  margin-top: 8px;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid #3b3b50;
+  background: #171722;
+  color: #fff;
+  font-size: 18px;
+}
+
+#calcDoseBtn {
+  background: #2c2c3a;
+  color: #f8f8fb;
+  border: 1px solid #3b3b50;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+#calcDoseBtn:hover {
+  background: #39394a;
+}
+
+.calcResult {
+  margin-top: 14px;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.calcNote {
+  margin-top: 10px;
+  color: #ffcf8a;
+  font-size: 13px;
+}
   </style>
 </head>
 
@@ -184,6 +257,24 @@
       <canvas id="chart"></canvas>
     </div>
   </main>
+
+  <section class="calcPanel">
+    <div class="calcHeader">
+      <h3>Meal Calculator</h3>
+      <span id="calcGlucose">Using latest: --</span>
+    </div>
+  
+    <label class="calcLabel">
+      Meal carbs
+      <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
+    </label>
+  
+    <button id="calcDoseBtn">Calculate</button>
+  
+    <div id="calcResult" class="calcResult">
+      Enter carbs to calculate.
+    </div>
+  </section>
 
   <script>
     const DISPLAY_TIME_ZONE = 'America/New_York';
@@ -305,6 +396,7 @@
         : new Date();
 
       glucoseEl.textContent = value;
+      updateCalcLatest(reading);
       trendEl.textContent = reading.trend || '→';
 
       updatedEl.textContent = ts.toLocaleString('en-US', {
@@ -452,6 +544,77 @@
     });
 
     cancelWarmupBtn.addEventListener('click', stopWarmup);
+
+    const carbInput = document.getElementById('carbInput');
+    const calcDoseBtn = document.getElementById('calcDoseBtn');
+    const calcResult = document.getElementById('calcResult');
+    const calcGlucose = document.getElementById('calcGlucose');
+
+    let latestGlucoseForCalc = null;
+    let latestGlucoseTimestampForCalc = null;
+
+    function correctionUnits(glucose) {
+      if (glucose >= 300) return 5;
+      if (glucose >= 260) return 4;
+      if (glucose >= 220) return 3;
+      if (glucose >= 180) return 2;
+      return 0;
+    }
+
+    function roundToHalf(value) {
+      return Math.round(value * 2) / 2;
+    }
+
+    function updateCalcLatest(reading) {
+      const value = reading?.glucose ?? reading?.value;
+
+      if (value === null || value === undefined) return;
+
+      latestGlucoseForCalc = Number(value);
+      latestGlucoseTimestampForCalc = reading.timestamp ? new Date(reading.timestamp) : new Date();
+
+      calcGlucose.textContent = `Using latest: ${latestGlucoseForCalc} mg/dL`;
+    }
+
+    function calculateMealDose() {
+      const carbs = Number(carbInput.value);
+
+      if (!Number.isFinite(carbs) || carbs < 0) {
+        calcResult.textContent = 'Enter valid meal carbs.';
+        return;
+      }
+
+      if (!Number.isFinite(latestGlucoseForCalc)) {
+        calcResult.textContent = 'No latest glucose available yet.';
+        return;
+      }
+
+      const ageMinutes = latestGlucoseTimestampForCalc
+        ? Math.round((Date.now() - latestGlucoseTimestampForCalc.getTime()) / 60000)
+        : null;
+
+      if (ageMinutes !== null && ageMinutes > 15) {
+        calcResult.textContent = `Latest glucose is ${ageMinutes} min old. Refresh/confirm glucose before calculating.`;
+        return;
+      }
+
+      const carbDose = carbs / 12.5;
+      const correctionDose = correctionUnits(latestGlucoseForCalc);
+      const totalDose = roundToHalf(carbDose + correctionDose);
+
+      calcResult.innerHTML = `
+        <div>${totalDose}u total</div>
+        <div>${roundToHalf(carbDose)}u carbs + ${correctionDose}u correction</div>
+        <div style="color:#b9b9c8;font-size:14px;margin-top:6px;">
+          Based on ${carbs}g carbs and ${latestGlucoseForCalc} mg/dL.
+        </div>
+      `;
+    }
+
+    calcDoseBtn.addEventListener('click', calculateMealDose);
+    carbInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') calculateMealDose();
+});
 
     loadInitial();
     connectWs();
