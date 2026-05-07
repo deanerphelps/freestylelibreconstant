@@ -135,7 +135,6 @@
     .chartWrap {
       margin-top: 20px;
       height: 500px;
-      
       box-sizing: border-box;
       overflow: visible;
     }
@@ -146,114 +145,115 @@
     }
 
     .sideToggle {
-  position: fixed;
-  top: 140px;
-  right: 18px;
-  z-index: 50;
-  background: #2c2c3a;
-  color: #f8f8fb;
-  border: 1px solid #3b3b50;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
+      position: fixed;
+      top: 140px;
+      right: 18px;
+      z-index: 50;
+      background: #2c2c3a;
+      color: #f8f8fb;
+      border: 1px solid #3b3b50;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
 
-.calcSidebar {
-  position: fixed;
-  top: 0;
-  right: 0;
-  width: min(420px, calc(100vw - 32px));
-  height: 100vh;
-  background: #11111a;
-  border-left: 1px solid #303040;
-  box-shadow: -20px 0 60px rgba(0,0,0,.45);
-  z-index: 100;
-  padding: 22px;
-  box-sizing: border-box;
-  transform: translateX(105%);
-  transition: transform .25s ease;
-}
+    .calcSidebar {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(420px, calc(100vw - 32px));
+      height: 100vh;
+      background: #11111a;
+      border-left: 1px solid #303040;
+      box-shadow: -20px 0 60px rgba(0,0,0,.45);
+      z-index: 100;
+      padding: 22px;
+      box-sizing: border-box;
+      transform: translateX(105%);
+      transition: transform .25s ease;
+    }
 
-.calcSidebar.open {
-  transform: translateX(0);
-}
+    .calcSidebar.open {
+      transform: translateX(0);
+    }
 
-.sideHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
-}
+    .sideHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
 
-.sideHeader h3 {
-  margin: 0;
-}
+    .sideHeader h3 {
+      margin: 0;
+    }
 
-#calcClose {
-  background: #2c2c3a;
-  color: #f8f8fb;
-  border: 1px solid #3b3b50;
-  border-radius: 999px;
-  width: 36px;
-  height: 36px;
-  font-size: 22px;
-  cursor: pointer;
-}
+    #calcClose {
+      background: #2c2c3a;
+      color: #f8f8fb;
+      border: 1px solid #3b3b50;
+      border-radius: 999px;
+      width: 36px;
+      height: 36px;
+      font-size: 22px;
+      cursor: pointer;
+    }
 
-.calcHeader {
-  margin-bottom: 16px;
-  color: #b9b9c8;
-  font-size: 14px;
-}
+    .calcHeader {
+      margin-bottom: 16px;
+      color: #b9b9c8;
+      font-size: 14px;
+    }
 
-.calcLabel {
-  display: block;
-  color: #d7d7e2;
-  font-weight: 700;
-  margin-bottom: 12px;
-}
+    .calcLabel {
+      display: block;
+      color: #d7d7e2;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
 
-.calcLabel input {
-  width: 100%;
-  margin-top: 8px;
-  box-sizing: border-box;
-  padding: 12px;
-  border-radius: 12px;
-  border: 1px solid #3b3b50;
-  background: #171722;
-  color: #fff;
-  font-size: 18px;
-}
+    .calcLabel input {
+      width: 100%;
+      margin-top: 8px;
+      box-sizing: border-box;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid #3b3b50;
+      background: #171722;
+      color: #fff;
+      font-size: 18px;
+    }
 
-#calcDoseBtn {
-  background: #2c2c3a;
-  color: #f8f8fb;
-  border: 1px solid #3b3b50;
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 800;
-  cursor: pointer;
-}
+    #calcDoseBtn {
+      background: #2c2c3a;
+      color: #f8f8fb;
+      border: 1px solid #3b3b50;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
 
-#calcDoseBtn:hover,
-.sideToggle:hover,
-#calcClose:hover {
-  background: #39394a;
-}
+    #calcDoseBtn:hover,
+    .sideToggle:hover,
+    #calcClose:hover {
+      background: #39394a;
+    }
 
-.calcResult {
-  margin-top: 18px;
-  font-size: 20px;
-  font-weight: 800;
-  line-height: 1.45;
-}
+    .calcResult {
+      margin-top: 18px;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.45;
+    }
 
-.calcNote {
-  margin-top: 12px;
-  color: #ffcf8a;
-  font-size: 13px;
-}
+    .calcNote {
+      margin-top: 12px;
+      color: #ffcf8a;
+      font-size: 13px;
+    }
   </style>
 </head>
 
@@ -293,26 +293,36 @@
     <div class="chartWrap">
       <canvas id="chart"></canvas>
     </div>
-    
   </main>
 
-  <section class="calcPanel">
-    <div class="calcHeader">
+  <button id="calcToggle" class="sideToggle">Calculator</button>
+
+  <aside id="calcSidebar" class="calcSidebar">
+    <div class="sideHeader">
       <h3>Meal Calculator</h3>
+      <button id="calcClose">×</button>
+    </div>
+
+    <div class="calcHeader">
       <span id="calcGlucose">Using latest: --</span>
     </div>
-  
+
     <label class="calcLabel">
       Meal carbs
       <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
     </label>
-  
+
     <button id="calcDoseBtn">Calculate</button>
-  
+
     <div id="calcResult" class="calcResult">
       Enter carbs to calculate.
     </div>
-  </section>
+
+    <div class="calcNote">
+      Informational only. Confirm dose before using.
+    </div>
+  </aside>
+
   <script>
     const DISPLAY_TIME_ZONE = 'America/New_York';
 
@@ -326,6 +336,32 @@
     const warmupPanel = document.getElementById('warmupPanel');
     const warmupText = document.getElementById('warmupText');
     const warmupProgress = document.getElementById('warmupProgress');
+
+    const calcToggle = document.getElementById('calcToggle');
+    const calcSidebar = document.getElementById('calcSidebar');
+    const calcClose = document.getElementById('calcClose');
+    const carbInput = document.getElementById('carbInput');
+    const calcDoseBtn = document.getElementById('calcDoseBtn');
+    const calcResult = document.getElementById('calcResult');
+    const calcGlucose = document.getElementById('calcGlucose');
+
+    let latestGlucoseForCalc = null;
+    let latestGlucoseTimestampForCalc = null;
+
+    calcToggle.addEventListener('click', () => {
+      calcSidebar.classList.add('open');
+      setTimeout(() => carbInput.focus(), 100);
+    });
+
+    calcClose.addEventListener('click', () => {
+      calcSidebar.classList.remove('open');
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        calcSidebar.classList.remove('open');
+      }
+    });
 
     const glucoseBandsPlugin = {
       id: 'glucoseBands',
@@ -365,7 +401,6 @@
           borderColor: '#f8f8fb',
           backgroundColor: 'rgba(255,255,255,.06)',
           fill: false,
-
           pointRadius: 4,
           pointHoverRadius: 7,
           pointBackgroundColor: '#f8f8fb',
@@ -582,14 +617,6 @@
 
     cancelWarmupBtn.addEventListener('click', stopWarmup);
 
-    const carbInput = document.getElementById('carbInput');
-    const calcDoseBtn = document.getElementById('calcDoseBtn');
-    const calcResult = document.getElementById('calcResult');
-    const calcGlucose = document.getElementById('calcGlucose');
-
-    let latestGlucoseForCalc = null;
-    let latestGlucoseTimestampForCalc = null;
-
     function correctionUnits(glucose) {
       if (glucose >= 300) return 5;
       if (glucose >= 260) return 4;
@@ -630,25 +657,6 @@
       const correctionDose = correctionUnits(latestGlucoseForCalc);
       const totalDose = roundToHalf(carbDose + correctionDose);
 
-      const calcToggle = document.getElementById('calcToggle');
-      const calcSidebar = document.getElementById('calcSidebar');
-      const calcClose = document.getElementById('calcClose');
-
-      calcToggle.addEventListener('click', () => {
-        calcSidebar.classList.add('open');
-        carbInput.focus();
-      });
-
-      calcClose.addEventListener('click', () => {
-        calcSidebar.classList.remove('open');
-      });
-
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-          calcSidebar.classList.remove('open');
-        }
-      });
-
       calcResult.innerHTML = `
         <div>${totalDose}u total</div>
         <div>${roundToHalf(carbDose)}u carbs + ${correctionDose}u correction</div>
@@ -659,9 +667,10 @@
     }
 
     calcDoseBtn.addEventListener('click', calculateMealDose);
+
     carbInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') calculateMealDose();
-});
+    });
 
     loadInitial();
     connectWs();
