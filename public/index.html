@@ -256,25 +256,25 @@
     <div class="chartWrap">
       <canvas id="chart"></canvas>
     </div>
+    <section class="calcPanel">
+      <div class="calcHeader">
+        <h3>Meal Calculator</h3>
+        <span id="calcGlucose">Using latest: --</span>
+      </div>
+    
+      <label class="calcLabel">
+        Meal carbs
+        <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
+      </label>
+    
+      <button id="calcDoseBtn">Calculate</button>
+    
+      <div id="calcResult" class="calcResult">
+        Enter carbs to calculate.
+      </div>
+    </section>
   </main>
 
-  <section class="calcPanel">
-    <div class="calcHeader">
-      <h3>Meal Calculator</h3>
-      <span id="calcGlucose">Using latest: --</span>
-    </div>
-  
-    <label class="calcLabel">
-      Meal carbs
-      <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
-    </label>
-  
-    <button id="calcDoseBtn">Calculate</button>
-  
-    <div id="calcResult" class="calcResult">
-      Enter carbs to calculate.
-    </div>
-  </section>
 
   <script>
     const DISPLAY_TIME_ZONE = 'America/New_York';
@@ -586,15 +586,6 @@
 
       if (!Number.isFinite(latestGlucoseForCalc)) {
         calcResult.textContent = 'No latest glucose available yet.';
-        return;
-      }
-
-      const ageMinutes = latestGlucoseTimestampForCalc
-        ? Math.round((Date.now() - latestGlucoseTimestampForCalc.getTime()) / 60000)
-        : null;
-
-      if (ageMinutes !== null && ageMinutes > 15) {
-        calcResult.textContent = `Latest glucose is ${ageMinutes} min old. Refresh/confirm glucose before calculating.`;
         return;
       }
 
