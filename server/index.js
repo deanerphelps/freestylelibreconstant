@@ -4,6 +4,18 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { LibreLinkClient } from 'libre-link-unofficial-api';
+import fs from 'node:fs';
+
+const HISTORY_FILE = path.join(__dirname, '..', 'data', 'history.json');
+const MAX_HISTORY = 1000;
+
+if (!fs.existsSync(path.join(__dirname, '..', 'data'))) {
+  fs.mkdirSync(path.join(__dirname, '..', 'data'));
+}
+
+if (!fs.existsSync(HISTORY_FILE)) {
+  fs.writeFileSync(HISTORY_FILE, '[]');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +37,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 const state = {
   status: 'starting',
   latest: null,
-  history: [],
+  history: JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8')),
   lastError: null,
   lastSuccessAt: null,
 };
