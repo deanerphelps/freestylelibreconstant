@@ -1,27 +1,28 @@
 import 'dotenv/config';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { LibreLinkClient } from 'libre-link-unofficial-api';
-import fs from 'node:fs';
 
-const HISTORY_FILE = path.join(__dirname, '..', 'data', 'history.json');
-const MAX_HISTORY = 1000;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-if (!fs.existsSync(path.join(__dirname, '..', 'data'))) {
-  fs.mkdirSync(path.join(__dirname, '..', 'data'));
+const HISTORY_DIR = process.env.HISTORY_DIR || '/app/data';
+const HISTORY_FILE = path.join(HISTORY_DIR, 'history.json');
+const MAX_HISTORY = Number(process.env.MAX_HISTORY || 1000);
+
+const PORT = Number(process.env.PORT || 3000);
+const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
+
+if (!fs.existsSync(HISTORY_DIR)) {
+  fs.mkdirSync(HISTORY_DIR, { recursive: true });
 }
 
 if (!fs.existsSync(HISTORY_FILE)) {
   fs.writeFileSync(HISTORY_FILE, '[]');
 }
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const PORT = Number(process.env.PORT || 3000);
-const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
 
 const client = new LibreLinkClient({
   email: process.env.LIBRE_EMAIL,
@@ -95,6 +96,12 @@ async function pollOnce() {
 
     state.latest = reading;
     state.history.push(reading);
+    state.history = state.history.slice(-MAX_HISTORY);
+
+    fs.writeFileSync(
+      HISTORY_FILE,
+      JSON.stringify(state.history, null, 2)
+    );
     state.history = state.history.slice(-288);
 
     state.status = 'ok';
