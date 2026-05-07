@@ -102,7 +102,7 @@ async function pollOnce() {
       HISTORY_FILE,
       JSON.stringify(state.history, null, 2)
     );
-    state.history = state.history.slice(-288);
+    state.history = state.history.slice(-1000);
 
     state.status = 'ok';
     state.lastSuccessAt = new Date().toISOString();

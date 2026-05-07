@@ -328,7 +328,7 @@
       chart.data.labels.push(label);
       chart.data.datasets[0].data.push(value);
 
-      if (chart.data.labels.length > 240) {
+      if (chart.data.labels.length > 120) {
         chart.data.labels.shift();
         chart.data.datasets[0].data.shift();
       }
@@ -342,7 +342,7 @@
 
         if (historyRes.ok) {
           const history = await historyRes.json();
-          history.slice(-60).forEach(applyReading);
+          history.slice(-120).forEach(applyReading);
         }
 
         const latestRes = await fetch('/api/latest');
