@@ -145,31 +145,66 @@
       height: 100% !important;
     }
 
-    .calcPanel {
-  margin-top: 22px;
+    .sideToggle {
+  position: fixed;
+  top: 140px;
+  right: 18px;
+  z-index: 50;
+  background: #2c2c3a;
+  color: #f8f8fb;
+  border: 1px solid #3b3b50;
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.calcSidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(420px, calc(100vw - 32px));
+  height: 100vh;
   background: #11111a;
-  border: 1px solid #303040;
-  border-radius: 18px;
-  padding: 16px;
-  max-width: 420px;
+  border-left: 1px solid #303040;
+  box-shadow: -20px 0 60px rgba(0,0,0,.45);
+  z-index: 100;
+  padding: 22px;
+  box-sizing: border-box;
+  transform: translateX(105%);
+  transition: transform .25s ease;
+}
+
+.calcSidebar.open {
+  transform: translateX(0);
+}
+
+.sideHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.sideHeader h3 {
+  margin: 0;
+}
+
+#calcClose {
+  background: #2c2c3a;
+  color: #f8f8fb;
+  border: 1px solid #3b3b50;
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  font-size: 22px;
+  cursor: pointer;
 }
 
 .calcHeader {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: baseline;
-  margin-bottom: 12px;
-}
-
-.calcHeader h3 {
-  margin: 0;
-  font-size: 18px;
-}
-
-#calcGlucose {
+  margin-bottom: 16px;
   color: #b9b9c8;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .calcLabel {
@@ -201,19 +236,21 @@
   cursor: pointer;
 }
 
-#calcDoseBtn:hover {
+#calcDoseBtn:hover,
+.sideToggle:hover,
+#calcClose:hover {
   background: #39394a;
 }
 
 .calcResult {
-  margin-top: 14px;
-  font-size: 18px;
+  margin-top: 18px;
+  font-size: 20px;
   font-weight: 800;
   line-height: 1.45;
 }
 
 .calcNote {
-  margin-top: 10px;
+  margin-top: 12px;
   color: #ffcf8a;
   font-size: 13px;
 }
@@ -256,26 +293,26 @@
     <div class="chartWrap">
       <canvas id="chart"></canvas>
     </div>
-    <section class="calcPanel">
-      <div class="calcHeader">
-        <h3>Meal Calculator</h3>
-        <span id="calcGlucose">Using latest: --</span>
-      </div>
     
-      <label class="calcLabel">
-        Meal carbs
-        <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
-      </label>
-    
-      <button id="calcDoseBtn">Calculate</button>
-    
-      <div id="calcResult" class="calcResult">
-        Enter carbs to calculate.
-      </div>
-    </section>
   </main>
 
-
+  <section class="calcPanel">
+    <div class="calcHeader">
+      <h3>Meal Calculator</h3>
+      <span id="calcGlucose">Using latest: --</span>
+    </div>
+  
+    <label class="calcLabel">
+      Meal carbs
+      <input id="carbInput" type="number" min="0" inputmode="decimal" placeholder="grams" />
+    </label>
+  
+    <button id="calcDoseBtn">Calculate</button>
+  
+    <div id="calcResult" class="calcResult">
+      Enter carbs to calculate.
+    </div>
+  </section>
   <script>
     const DISPLAY_TIME_ZONE = 'America/New_York';
 
@@ -592,6 +629,25 @@
       const carbDose = carbs / 12.5;
       const correctionDose = correctionUnits(latestGlucoseForCalc);
       const totalDose = roundToHalf(carbDose + correctionDose);
+
+      const calcToggle = document.getElementById('calcToggle');
+      const calcSidebar = document.getElementById('calcSidebar');
+      const calcClose = document.getElementById('calcClose');
+
+      calcToggle.addEventListener('click', () => {
+        calcSidebar.classList.add('open');
+        carbInput.focus();
+      });
+
+      calcClose.addEventListener('click', () => {
+        calcSidebar.classList.remove('open');
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+          calcSidebar.classList.remove('open');
+        }
+      });
 
       calcResult.innerHTML = `
         <div>${totalDose}u total</div>
