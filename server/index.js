@@ -88,37 +88,6 @@ function readingAgeMs(reading) {
   return Number.isFinite(timestamp) ? Date.now() - timestamp : Infinity;
 }
 
-function connectionTimestamp(connection) {
-  const timestamp = Date.parse(
-    connection?.glucoseItem?.Timestamp ||
-    connection?.glucoseItem?.timestamp
-  );
-  return Number.isFinite(timestamp) ? timestamp : 0;
-}
-
-async function refreshConnections() {
-  client.clearCache();
-  await client.login();
-
-  const response = await client.fetchConnections();
-  const connections = Array.isArray(response) ? response : response?.data;
-
-  if (!Array.isArray(connections) || connections.length < 2) return;
-
-  const preferredPatientId = process.env.LIBRE_PATIENT_ID;
-  connections.sort((left, right) => {
-    if (preferredPatientId) {
-      const leftPreferred = left?.patientId === preferredPatientId ? 1 : 0;
-      const rightPreferred = right?.patientId === preferredPatientId ? 1 : 0;
-      if (leftPreferred !== rightPreferred) return rightPreferred - leftPreferred;
-    }
-
-    return connectionTimestamp(right) - connectionTimestamp(left);
-  });
-
-  console.log(`Refreshed ${connections.length} LibreLinkUp connections; using the newest.`);
-}
-
 async function readLatest() {
   let reading = normalizeReading(await client.read());
   const now = Date.now();
@@ -129,7 +98,8 @@ async function readLatest() {
   ) {
     lastConnectionRefreshAt = now;
     console.warn('Stale Libre reading detected; refreshing connection data.');
-    await refreshConnections();
+    client.clearCache();
+    await client.login();
     reading = normalizeReading(await client.read());
   }
 
