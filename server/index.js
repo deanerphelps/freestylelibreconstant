@@ -15,6 +15,8 @@ const MAX_HISTORY = Number(process.env.MAX_HISTORY || 1000);
 
 const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
+const STALE_READING_MS = Number(process.env.STALE_READING_MS || 10 * 60_000);
+const CONNECTION_REFRESH_MS = Number(process.env.CONNECTION_REFRESH_MS || 5 * 60_000);
 
 if (!fs.existsSync(HISTORY_DIR)) {
   fs.mkdirSync(HISTORY_DIR, { recursive: true });
@@ -42,6 +44,10 @@ const state = {
   lastError: null,
   lastSuccessAt: null,
 };
+
+state.latest = state.history.at(-1) || null;
+
+let lastConnectionRefreshAt = 0;
 
 function trendArrow(trend) {
   const map = {
@@ -77,6 +83,29 @@ function normalizeReading(reading) {
   };
 }
 
+function readingAgeMs(reading) {
+  const timestamp = Date.parse(reading.timestamp);
+  return Number.isFinite(timestamp) ? Date.now() - timestamp : Infinity;
+}
+
+async function readLatest() {
+  let reading = normalizeReading(await client.read());
+  const now = Date.now();
+
+  if (
+    readingAgeMs(reading) > STALE_READING_MS &&
+    now - lastConnectionRefreshAt >= CONNECTION_REFRESH_MS
+  ) {
+    lastConnectionRefreshAt = now;
+    console.warn('Stale Libre reading detected; refreshing connection data.');
+    client.clearCache();
+    await client.login();
+    reading = normalizeReading(await client.read());
+  }
+
+  return reading;
+}
+
 function broadcast(payload) {
   const msg = JSON.stringify(payload);
   for (const ws of wss.clients) {
@@ -88,28 +117,43 @@ async function pollOnce() {
   try {
     state.status = 'polling';
 
-    const reading = normalizeReading(await client.read());
+    const reading = await readLatest();
 
     if (!reading.glucose) {
       throw new Error('LibreLinkUp returned no glucose value.');
     }
 
-    state.latest = reading;
-    state.history.push(reading);
-    state.history = state.history.slice(-MAX_HISTORY);
+    const ageMs = readingAgeMs(reading);
+    if (ageMs > STALE_READING_MS) {
+      const staleMinutes = Math.floor(ageMs / 60_000);
+      throw new Error(`LibreLinkUp returned a stale reading (${staleMinutes} minutes old).`);
+    }
 
-    fs.writeFileSync(
-      HISTORY_FILE,
-      JSON.stringify(state.history, null, 2)
-    );
-    state.history = state.history.slice(-1000);
+    const isNewReading =
+      !state.latest ||
+      reading.timestamp !== state.latest.timestamp ||
+      reading.glucose !== state.latest.glucose;
+
+    state.latest = reading;
 
     state.status = 'ok';
     state.lastSuccessAt = new Date().toISOString();
     state.lastError = null;
 
-    broadcast({ type: 'glucose', data: reading });
-    console.log('Updated:', reading.glucose, reading.trend);
+    if (isNewReading) {
+      state.history.push(reading);
+      state.history = state.history.slice(-MAX_HISTORY);
+
+      fs.writeFileSync(
+        HISTORY_FILE,
+        JSON.stringify(state.history, null, 2)
+      );
+
+      broadcast({ type: 'glucose', data: reading });
+      console.log('Updated:', reading.glucose, reading.trend);
+    } else {
+      console.log('No new Libre reading yet.');
+    }
   } catch (err) {
     state.status = 'error';
     state.lastError = {
