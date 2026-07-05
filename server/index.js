@@ -17,6 +17,7 @@ const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
 const STALE_READING_MS = Number(process.env.STALE_READING_MS || 10 * 60_000);
 const CONNECTION_REFRESH_MS = Number(process.env.CONNECTION_REFRESH_MS || 5 * 60_000);
+const DISPLAY_TIME_ZONE = 'America/New_York';
 
 if (!fs.existsSync(HISTORY_DIR)) {
   fs.mkdirSync(HISTORY_DIR, { recursive: true });
@@ -83,27 +84,114 @@ function normalizeReading(reading) {
   };
 }
 
+function parseLibreLocalTimestamp(value) {
+  if (typeof value !== 'string') return new Date(value);
+
+  const match = value.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/i
+  );
+  if (!match) return new Date(value);
+
+  const [, month, day, year, rawHour, minute, second, period] = match;
+  let hour = Number(rawHour) % 12;
+  if (period.toUpperCase() === 'PM') hour += 12;
+
+  const wallClockMs = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    hour,
+    Number(minute),
+    Number(second)
+  );
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: DISPLAY_TIME_ZONE,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+    second: 'numeric',
+    hourCycle: 'h23'
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date(wallClockMs)).map(part => [part.type, part.value])
+  );
+  const timeZoneWallClockMs = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  const offsetMs = timeZoneWallClockMs - wallClockMs;
+
+  return new Date(wallClockMs - offsetMs);
+}
+
+function normalizeConnectionReading(connection) {
+  const item = connection?.glucoseItem;
+  const value = item?.ValueInMgPerDl ?? null;
+  if (value === null || value === undefined || !item?.Timestamp) return null;
+
+  return {
+    glucose: value,
+    value,
+    unit: 'mg/dL',
+    // Keep the legacy display timestamp while using sourceTimestamp for freshness checks.
+    timestamp: new Date(item.Timestamp).toISOString(),
+    sourceTimestamp: parseLibreLocalTimestamp(item.Timestamp).toISOString(),
+    trend: trendArrow(item.TrendArrow),
+    trendType: item.TrendArrow ?? null,
+  };
+}
+
 function readingAgeMs(reading) {
-  const timestamp = Date.parse(reading.timestamp);
+  const timestamp = Date.parse(reading.sourceTimestamp || reading.timestamp);
   return Number.isFinite(timestamp) ? Date.now() - timestamp : Infinity;
 }
 
-async function readLatest() {
-  let reading = normalizeReading(await client.read());
-  const now = Date.now();
+async function readCurrentConnection() {
+  // Invalidate only connection data; keep the authenticated user/token cache.
+  client.cache?.delete?.('connections');
+  const response = await client.fetchConnections();
+  const connections = Array.isArray(response) ? response : response?.data || [];
+  const preferredPatientId = process.env.LIBRE_PATIENT_ID;
+  const candidates = connections
+    .filter(connection => connection?.glucoseItem?.Timestamp)
+    .sort((left, right) => {
+      if (preferredPatientId) {
+        const leftPreferred = left?.patientId === preferredPatientId ? 1 : 0;
+        const rightPreferred = right?.patientId === preferredPatientId ? 1 : 0;
+        if (leftPreferred !== rightPreferred) return rightPreferred - leftPreferred;
+      }
 
-  if (
-    readingAgeMs(reading) > STALE_READING_MS &&
-    now - lastConnectionRefreshAt >= CONNECTION_REFRESH_MS
-  ) {
-    lastConnectionRefreshAt = now;
-    console.warn('Stale Libre reading detected; refreshing connection data.');
-    client.clearCache();
-    await client.login();
-    reading = normalizeReading(await client.read());
+      return parseLibreLocalTimestamp(right.glucoseItem.Timestamp) -
+        parseLibreLocalTimestamp(left.glucoseItem.Timestamp);
+    });
+
+  return normalizeConnectionReading(candidates[0]);
+}
+
+async function readLatest() {
+  try {
+    const connectionReading = await readCurrentConnection();
+    if (connectionReading) return connectionReading;
+  } catch (err) {
+    const now = Date.now();
+    if (now - lastConnectionRefreshAt >= CONNECTION_REFRESH_MS) {
+      lastConnectionRefreshAt = now;
+      console.warn('Libre connection refresh failed; re-authenticating.', err?.message || err);
+      client.clearCache();
+      await client.login();
+      const connectionReading = await readCurrentConnection();
+      if (connectionReading) return connectionReading;
+    }
   }
 
-  return reading;
+  return normalizeReading(await client.read());
 }
 
 function broadcast(payload) {
