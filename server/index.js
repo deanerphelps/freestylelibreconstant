@@ -191,12 +191,22 @@ app.get('/watch', (_req, res) => {
 
 app.get('/api/libre-debug', async (_req, res) => {
   try {
-    const connections = await client.fetchConnections();
+    const response = await client.fetchConnections();
+    const connections = Array.isArray(response) ? response : response?.data || [];
+    const configuredPatientId = process.env.LIBRE_PATIENT_ID;
 
     res.json({
-      count: connections?.length || 0,
-      sampleKeys: connections?.[0] ? Object.keys(connections[0]) : [],
-      firstConnection: connections?.[0] || null
+      count: connections.length,
+      hasConfiguredPatientId: Boolean(configuredPatientId),
+      connections: connections.map((connection, index) => ({
+        index,
+        matchesConfiguredPatient: configuredPatientId
+          ? connection?.patientId === configuredPatientId
+          : null,
+        glucose: connection?.glucoseItem?.ValueInMgPerDl ?? null,
+        timestamp: connection?.glucoseItem?.Timestamp ?? null,
+        trend: connection?.glucoseItem?.TrendArrow ?? null
+      }))
     });
   } catch (err) {
     res.status(500).json({
