@@ -11,10 +11,15 @@
 <div id="t">→</div>
 <script>
 async function update() {
-  const res = await fetch('/api/latest');
-  const d = await res.json();
-  document.getElementById('g').textContent = d.glucose;
-  document.getElementById('t').textContent = d.trend;
+  try {
+    const res = await fetch('/api/latest');
+    const d = await res.json();
+    document.getElementById('g').textContent = res.ok ? d.glucose : '--';
+    document.getElementById('t').textContent = res.ok ? d.trend : '⏳';
+  } catch {
+    document.getElementById('g').textContent = '--';
+    document.getElementById('t').textContent = '⏳';
+  }
 }
 setInterval(update,30000);
 update();

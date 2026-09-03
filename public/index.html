@@ -545,6 +545,13 @@
       chart.update();
     }
 
+    function showUnavailable(message = 'no recent data') {
+      glucoseEl.textContent = '--';
+      trendEl.textContent = '⏳';
+      updatedEl.textContent = 'No recent data';
+      statusEl.textContent = message;
+    }
+
     async function loadInitial() {
       try {
         const historyRes = await fetch('/api/history');
@@ -558,9 +565,11 @@
 
         if (latestRes.ok) {
           applyReading(await latestRes.json());
+        } else {
+          showUnavailable();
         }
       } catch {
-        statusEl.textContent = 'offline';
+        showUnavailable('offline');
       }
     }
 
@@ -580,7 +589,7 @@
         }
 
         if (msg.type === 'error') {
-          statusEl.textContent = 'error';
+          showUnavailable('no recent data');
         }
       };
 

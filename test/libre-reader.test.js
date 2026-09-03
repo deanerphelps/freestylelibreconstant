@@ -2,11 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   LibreReader,
+  newestVersion,
   parseLibreLocalTimestamp,
   readingAgeMs,
 } from '../server/libre-reader.js';
 
 const NOW = Date.parse('2026-09-02T18:00:00.000Z');
+
+test('raises an outdated configured LibreLinkUp version to the supported minimum', () => {
+  assert.equal(newestVersion('4.16.0', '5.1.1'), '5.1.1');
+  assert.equal(newestVersion('5.2.0', '5.1.1'), '5.2.0');
+  assert.equal(newestVersion(undefined, '5.1.1'), '5.1.1');
+});
 
 function connection(timestamp, glucose = 120, patientId = 'patient-1') {
   return {

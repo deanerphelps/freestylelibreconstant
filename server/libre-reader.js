@@ -1,5 +1,22 @@
 const DEFAULT_TIME_ZONE = 'America/New_York';
 
+export function newestVersion(configured, minimum) {
+  const configuredParts = String(configured || '').split('.').map(Number);
+  const minimumParts = String(minimum).split('.').map(Number);
+  const length = Math.max(configuredParts.length, minimumParts.length);
+
+  for (let index = 0; index < length; index += 1) {
+    const configuredPart = Number.isFinite(configuredParts[index])
+      ? configuredParts[index]
+      : 0;
+    const minimumPart = Number.isFinite(minimumParts[index]) ? minimumParts[index] : 0;
+    if (configuredPart > minimumPart) return configured;
+    if (configuredPart < minimumPart) return minimum;
+  }
+
+  return configured || minimum;
+}
+
 export function trendArrow(trend) {
   const map = {
     SingleDown: '↓',

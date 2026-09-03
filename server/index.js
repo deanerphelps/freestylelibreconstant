@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { LibreLinkClient } from 'libre-link-unofficial-api';
-import { LibreReader, readingAgeMs } from './libre-reader.js';
+import { LibreReader, newestVersion, readingAgeMs } from './libre-reader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +18,10 @@ const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
 const STALE_READING_MS = Number(process.env.STALE_READING_MS || 10 * 60_000);
 const CONNECTION_REFRESH_MS = Number(process.env.CONNECTION_REFRESH_MS || 5 * 60_000);
+const LIBRE_LINK_UP_VERSION = newestVersion(
+  process.env.LIBRE_LINK_UP_VERSION,
+  '5.1.1'
+);
 
 if (!fs.existsSync(HISTORY_DIR)) {
   fs.mkdirSync(HISTORY_DIR, { recursive: true });
@@ -31,7 +35,7 @@ const client = new LibreLinkClient({
   email: process.env.LIBRE_EMAIL,
   password: process.env.LIBRE_PASSWORD,
   patientId: process.env.LIBRE_PATIENT_ID || undefined,
-  lluVersion: process.env.LIBRE_LINK_UP_VERSION || '4.16.0',
+  lluVersion: LIBRE_LINK_UP_VERSION,
 });
 
 const libreReader = new LibreReader({
@@ -117,6 +121,12 @@ async function pollOnce() {
 
 app.get('/api/latest', (_req, res) => {
   if (!state.latest) return res.status(503).json({ error: 'No reading yet', state });
+  if (readingAgeMs(state.latest) > STALE_READING_MS) {
+    return res.status(503).json({
+      error: 'No recent Libre reading',
+      timestamp: state.latest.sourceTimestamp || state.latest.timestamp,
+    });
+  }
   res.json(state.latest);
 });
 
