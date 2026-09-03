@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { LibreLinkClient } from 'libre-link-unofficial-api';
+import { LibreReader, readingAgeMs } from './libre-reader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,7 +18,6 @@ const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
 const STALE_READING_MS = Number(process.env.STALE_READING_MS || 10 * 60_000);
 const CONNECTION_REFRESH_MS = Number(process.env.CONNECTION_REFRESH_MS || 5 * 60_000);
-const DISPLAY_TIME_ZONE = 'America/New_York';
 
 if (!fs.existsSync(HISTORY_DIR)) {
   fs.mkdirSync(HISTORY_DIR, { recursive: true });
@@ -34,6 +34,13 @@ const client = new LibreLinkClient({
   lluVersion: process.env.LIBRE_LINK_UP_VERSION || '4.16.0',
 });
 
+const libreReader = new LibreReader({
+  client,
+  patientId: process.env.LIBRE_PATIENT_ID || undefined,
+  staleReadingMs: STALE_READING_MS,
+  refreshMs: CONNECTION_REFRESH_MS,
+});
+
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -48,152 +55,6 @@ const state = {
 
 state.latest = state.history.at(-1) || null;
 
-let lastConnectionRefreshAt = 0;
-
-function trendArrow(trend) {
-  const map = {
-    SingleDown: '↓',
-    FortyFiveDown: '↘',
-    Flat: '→',
-    FortyFiveUp: '↗',
-    SingleUp: '↑',
-    NotComputable: '→',
-  };
-
-  if (typeof trend === 'string') return map[trend] || trend || '→';
-
-  return {
-    1: '↓',
-    2: '↘',
-    3: '→',
-    4: '↗',
-    5: '↑',
-  }[trend] || '→';
-}
-
-function normalizeReading(reading) {
-  return {
-    glucose: reading?.value ?? reading?.mgDl ?? reading?.glucose ?? null,
-    value: reading?.value ?? reading?.mgDl ?? reading?.glucose ?? null,
-    unit: 'mg/dL',
-    timestamp: reading?.timestamp instanceof Date
-      ? reading.timestamp.toISOString()
-      : new Date().toISOString(),
-    trend: trendArrow(reading?.trendType ?? reading?.trend),
-    trendType: reading?.trendType ?? reading?.trend ?? null,
-  };
-}
-
-function parseLibreLocalTimestamp(value) {
-  if (typeof value !== 'string') return new Date(value);
-
-  const match = value.match(
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})\s+(AM|PM)$/i
-  );
-  if (!match) return new Date(value);
-
-  const [, month, day, year, rawHour, minute, second, period] = match;
-  let hour = Number(rawHour) % 12;
-  if (period.toUpperCase() === 'PM') hour += 12;
-
-  const wallClockMs = Date.UTC(
-    Number(year),
-    Number(month) - 1,
-    Number(day),
-    hour,
-    Number(minute),
-    Number(second)
-  );
-
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: DISPLAY_TIME_ZONE,
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-    hourCycle: 'h23'
-  });
-  const parts = Object.fromEntries(
-    formatter.formatToParts(new Date(wallClockMs)).map(part => [part.type, part.value])
-  );
-  const timeZoneWallClockMs = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second)
-  );
-  const offsetMs = timeZoneWallClockMs - wallClockMs;
-
-  return new Date(wallClockMs - offsetMs);
-}
-
-function normalizeConnectionReading(connection) {
-  const item = connection?.glucoseItem;
-  const value = item?.ValueInMgPerDl ?? null;
-  if (value === null || value === undefined || !item?.Timestamp) return null;
-
-  return {
-    glucose: value,
-    value,
-    unit: 'mg/dL',
-    // Keep the legacy display timestamp while using sourceTimestamp for freshness checks.
-    timestamp: new Date(item.Timestamp).toISOString(),
-    sourceTimestamp: parseLibreLocalTimestamp(item.Timestamp).toISOString(),
-    trend: trendArrow(item.TrendArrow),
-    trendType: item.TrendArrow ?? null,
-  };
-}
-
-function readingAgeMs(reading) {
-  const timestamp = Date.parse(reading.sourceTimestamp || reading.timestamp);
-  return Number.isFinite(timestamp) ? Date.now() - timestamp : Infinity;
-}
-
-async function readCurrentConnection() {
-  // Invalidate only connection data; keep the authenticated user/token cache.
-  client.cache?.delete?.('connections');
-  const response = await client.fetchConnections();
-  const connections = Array.isArray(response) ? response : response?.data || [];
-  const preferredPatientId = process.env.LIBRE_PATIENT_ID;
-  const candidates = connections
-    .filter(connection => connection?.glucoseItem?.Timestamp)
-    .sort((left, right) => {
-      if (preferredPatientId) {
-        const leftPreferred = left?.patientId === preferredPatientId ? 1 : 0;
-        const rightPreferred = right?.patientId === preferredPatientId ? 1 : 0;
-        if (leftPreferred !== rightPreferred) return rightPreferred - leftPreferred;
-      }
-
-      return parseLibreLocalTimestamp(right.glucoseItem.Timestamp) -
-        parseLibreLocalTimestamp(left.glucoseItem.Timestamp);
-    });
-
-  return normalizeConnectionReading(candidates[0]);
-}
-
-async function readLatest() {
-  try {
-    const connectionReading = await readCurrentConnection();
-    if (connectionReading) return connectionReading;
-  } catch (err) {
-    const now = Date.now();
-    if (now - lastConnectionRefreshAt >= CONNECTION_REFRESH_MS) {
-      lastConnectionRefreshAt = now;
-      console.warn('Libre connection refresh failed; re-authenticating.', err?.message || err);
-      client.clearCache();
-      await client.login();
-      const connectionReading = await readCurrentConnection();
-      if (connectionReading) return connectionReading;
-    }
-  }
-
-  return normalizeReading(await client.read());
-}
-
 function broadcast(payload) {
   const msg = JSON.stringify(payload);
   for (const ws of wss.clients) {
@@ -205,7 +66,7 @@ async function pollOnce() {
   try {
     state.status = 'polling';
 
-    const reading = await readLatest();
+    const reading = await libreReader.readLatest();
 
     if (!reading.glucose) {
       throw new Error('LibreLinkUp returned no glucose value.');
@@ -279,8 +140,7 @@ app.get('/watch', (_req, res) => {
 
 app.get('/api/libre-debug', async (_req, res) => {
   try {
-    const response = await client.fetchConnections();
-    const connections = Array.isArray(response) ? response : response?.data || [];
+    const { connections } = await libreReader.fetchConnections();
     const configuredPatientId = process.env.LIBRE_PATIENT_ID;
 
     res.json({
