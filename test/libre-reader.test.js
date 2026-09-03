@@ -74,7 +74,12 @@ test('reauthenticates when a successful response is stale after a sensor change'
     graphBefore: stale,
     graphAfter: fresh,
   });
-  const reader = new LibreReader({ client, now: () => NOW, logger: { warn() {} } });
+  const reader = new LibreReader({
+    client,
+    now: () => NOW,
+    sleep: async () => {},
+    logger: { warn() {} },
+  });
 
   const reading = await reader.readLatest();
 
@@ -84,6 +89,41 @@ test('reauthenticates when a successful response is stale after a sensor change'
   assert.equal(client.clearCount, 1);
 });
 
+test('retries a stale response before reauthenticating or returning no recent data', async () => {
+  const stale = connection('9/2/2026 1:30:00 PM', 118);
+  const fresh = connection('9/2/2026 1:58:00 PM', 124);
+  let connectionFetches = 0;
+  const sleepDelays = [];
+  const client = {
+    cache: new Map(),
+    loginCount: 0,
+    clearCache() {},
+    async login() {
+      this.loginCount += 1;
+    },
+    async fetchConnections() {
+      connectionFetches += 1;
+      return response(connectionFetches === 1 ? stale : fresh);
+    },
+    async fetchReading() {
+      return { data: { connection: stale } };
+    },
+  };
+  const reader = new LibreReader({
+    client,
+    now: () => NOW,
+    retryDelayMs: 15_000,
+    sleep: async delayMs => sleepDelays.push(delayMs),
+    logger: { warn() {} },
+  });
+
+  const reading = await reader.readLatest();
+
+  assert.equal(reading.glucose, 124);
+  assert.deepEqual(sleepDelays, [15_000]);
+  assert.equal(client.loginCount, 0);
+});
+
 test('uses the graph reading when the connection summary still shows the old sensor', async () => {
   const stale = connection('9/2/2026 1:30:00 PM', 118);
   const freshGraph = connection('9/2/2026 1:58:00 PM', 126);
@@ -91,7 +131,12 @@ test('uses the graph reading when the connection summary still shows the old sen
     beforeLogin: stale,
     graphBefore: freshGraph,
   });
-  const reader = new LibreReader({ client, now: () => NOW, logger: { warn() {} } });
+  const reader = new LibreReader({
+    client,
+    now: () => NOW,
+    sleep: async () => {},
+    logger: { warn() {} },
+  });
 
   const reading = await reader.readLatest();
 
@@ -119,6 +164,7 @@ test('keeps an explicitly configured patient selected', async () => {
     client,
     patientId: 'patient-1',
     now: () => NOW,
+    sleep: async () => {},
     logger: { warn() {} },
   });
 
@@ -138,6 +184,7 @@ test('does not use another patient graph when the configured patient is stale', 
     client,
     patientId: 'patient-1',
     now: () => NOW,
+    sleep: async () => {},
     logger: { warn() {} },
   });
 

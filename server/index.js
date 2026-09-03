@@ -18,6 +18,7 @@ const PORT = Number(process.env.PORT || 3000);
 const POLL_MS = Number(process.env.POLL_MS || process.env.POLL_SECONDS * 1000 || 60_000);
 const STALE_READING_MS = Number(process.env.STALE_READING_MS || 10 * 60_000);
 const CONNECTION_REFRESH_MS = Number(process.env.CONNECTION_REFRESH_MS || 5 * 60_000);
+const STALE_RETRY_MS = Number(process.env.STALE_RETRY_MS || 15_000);
 const LIBRE_LINK_UP_VERSION = newestVersion(
   process.env.LIBRE_LINK_UP_VERSION,
   '5.1.1'
@@ -43,6 +44,7 @@ const libreReader = new LibreReader({
   patientId: process.env.LIBRE_PATIENT_ID || undefined,
   staleReadingMs: STALE_READING_MS,
   refreshMs: CONNECTION_REFRESH_MS,
+  retryDelayMs: STALE_RETRY_MS,
 });
 
 const app = express();

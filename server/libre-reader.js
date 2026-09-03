@@ -159,16 +159,20 @@ export class LibreReader {
     patientId,
     staleReadingMs = 10 * 60_000,
     refreshMs = 5 * 60_000,
+    retryDelayMs = 15_000,
     timeZone = DEFAULT_TIME_ZONE,
     now = () => Date.now(),
+    sleep = delayMs => new Promise(resolve => setTimeout(resolve, delayMs)),
     logger = console,
   }) {
     this.client = client;
     this.patientId = patientId;
     this.staleReadingMs = staleReadingMs;
     this.refreshMs = refreshMs;
+    this.retryDelayMs = retryDelayMs;
     this.timeZone = timeZone;
     this.now = now;
+    this.sleep = sleep;
     this.logger = logger;
     this.lastRefreshAt = 0;
     this.refreshPromise = null;
@@ -249,6 +253,23 @@ export class LibreReader {
 
     const isStale = !reading || readingAgeMs(reading, this.now()) > this.staleReadingMs;
     if (!isStale) return reading;
+
+    if (this.retryDelayMs > 0) {
+      this.logger.warn(
+        `Stale Libre response; retrying in ${Math.round(this.retryDelayMs / 1000)} seconds.`
+      );
+      await this.sleep(this.retryDelayMs);
+
+      try {
+        const retryReading = await this.readAttempt();
+        reading = newestReading(reading, retryReading);
+        if (reading && readingAgeMs(reading, this.now()) <= this.staleReadingMs) {
+          return reading;
+        }
+      } catch (error) {
+        firstError ||= error;
+      }
+    }
 
     const now = this.now();
     if (now - this.lastRefreshAt >= this.refreshMs) {
