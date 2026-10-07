@@ -4,7 +4,10 @@ export function validateLoginResponse(response, now = Date.now()) {
   const ticket = response?.data?.authTicket;
   if (!ticket?.token || response?.status !== 0) {
     const status = response?.status ?? 'unknown';
-    throw new Error(`LibreLinkUp login requires account attention (status ${status}; no usable access token). Open LibreLinkUp and complete any sign-in or account prompts.`);
+    const prompt = response?.data?.step?.type === 'tou'
+      ? 'Open LibreLinkUp and review the updated terms to reconnect.'
+      : 'Open LibreLinkUp and complete any sign-in or account prompts.';
+    throw new Error(`LibreLinkUp login requires account attention (status ${status}; no usable access token). ${prompt}`);
   }
   if (ticket.expires && Number(ticket.expires) * 1000 <= now) {
     throw new Error('LibreLinkUp login returned an already-expired access token.');
@@ -192,6 +195,9 @@ export class LibreReader {
     this.logger = logger;
     this.lastRefreshAt = 0;
     this.refreshPromise = null;
+    this.authRetryAt = 0;
+    this.authFailures = 0;
+    this.authError = null;
   }
 
   async fetchConnections() {
@@ -245,6 +251,7 @@ export class LibreReader {
   }
 
   async reauthenticate() {
+    if (this.now() < this.authRetryAt) throw this.authError;
     if (!this.refreshPromise) {
       this.refreshPromise = (async () => {
         this.client.clearCache();
@@ -252,7 +259,18 @@ export class LibreReader {
         // Sending the expired bearer token to login can make every retry fail.
         this.client.accessToken = null;
         await this.client.login();
-      })().finally(() => {
+        this.authRetryAt = 0;
+        this.authFailures = 0;
+        this.authError = null;
+      })().catch(error => {
+        this.authFailures += 1;
+        const delay = /status 4(?:29|30)\b|account attention/i.test(error?.message || '')
+          ? 5 * 60_000
+          : Math.min(5 * 60_000, 15_000 * 2 ** Math.min(this.authFailures - 1, 5));
+        this.authRetryAt = this.now() + delay;
+        this.authError = error;
+        throw error;
+      }).finally(() => {
         this.refreshPromise = null;
       });
     }
@@ -261,6 +279,7 @@ export class LibreReader {
   }
 
   async readLatest() {
+    if (this.now() < this.authRetryAt) throw this.authError;
     let reading = null;
     let firstError = null;
 

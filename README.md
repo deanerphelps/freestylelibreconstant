@@ -44,6 +44,7 @@ http://localhost:3000/watch
 
 ## Notes
 - Expired sessions automatically log in again without reusing the expired token.
+- Failed logins use increasing delays, with a five-minute pause for rejected/rate-limited requests or account prompts. The dashboard explains when LibreLinkUp needs account attention.
 - Dashboard and watch views retry every 15 seconds and show the last known reading with an age warning when stale. Stale readings are excluded from the calculator.
 - The server retries failed polls automatically, including after a failed startup login. It cannot obtain new readings while the Libre phone app is not uploading to LibreLinkUp.
 - Keep Libre app alarms enabled

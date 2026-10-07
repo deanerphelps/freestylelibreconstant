@@ -10,6 +10,7 @@ test('transient errors preserve recent readings; stale readings cannot feed the 
   vm.runInContext(`
     const glucoseEl = {}, trendEl = {}, updatedEl = {}, statusEl = {};
     const calcGlucose = {}, calcResult = {};
+    const connectionMessageEl = {};
     const DISPLAY_TIME_ZONE = 'America/New_York';
     let latestGlucoseForCalc = null, latestGlucoseTimestampForCalc = null;
     const chart = { data: { labels: [], datasets: [{ data: [] }] }, update() {} };

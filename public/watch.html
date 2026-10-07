@@ -18,14 +18,14 @@ function showReading(message = '') {
   document.getElementById('g').textContent = lastKnown?.glucose ?? '--';
   document.getElementById('t').textContent = stale ? '⏳' : lastKnown.trend;
   document.getElementById('status').textContent = lastKnown && stale
-    ? `Last known • ${Math.floor(age / 60000)} min old` : message;
+    ? `Last known • ${Math.floor(age / 60000)} min old. ${message}` : message;
 }
 async function update() {
   try {
     const res = await fetch('/api/latest', { cache: 'no-store' });
     const d = await res.json();
     lastKnown = res.ok ? d : (d.lastKnown || lastKnown);
-    showReading(res.ok ? 'live' : 'waiting for Libre update');
+    showReading(res.ok ? 'live' : (d.message || 'waiting for Libre update'));
   } catch {
     showReading('reconnecting');
   }

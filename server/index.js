@@ -146,6 +146,13 @@ app.get('/api/latest', (_req, res) => {
       timestamp: state.latest.sourceTimestamp || state.latest.timestamp,
       lastKnown: state.latest,
       status: state.status,
+      message: /updated terms/i.test(state.lastError?.message || '')
+        ? 'Open LibreLinkUp and review the updated terms to reconnect.'
+        : /account attention/i.test(state.lastError?.message || '')
+          ? 'Open LibreLinkUp and complete any account prompts to reconnect.'
+          : /status 4(?:29|30)\b/i.test(state.lastError?.message || '')
+            ? 'LibreLinkUp is rejecting login requests. Retrying automatically after a pause.'
+            : 'Waiting for a new LibreLinkUp reading. Retrying automatically.',
     });
   }
   res.json(state.latest);
@@ -199,7 +206,7 @@ const server = app.listen(PORT, async () => {
 
   try {
     state.status = 'logging_in';
-    await client.login();
+    await libreReader.reauthenticate();
 
     state.status = 'logged_in';
     await pollOnce();

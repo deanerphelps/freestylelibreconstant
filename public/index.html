@@ -323,6 +323,7 @@
       <span>Updated: <span id="updated">--</span></span>
       <span>Source: LibreLinkUp</span>
     </div>
+    <div id="connectionMessage" role="status" style="color:#b9b9c8;font-size:14px" hidden></div>
 
     <div class="warmupBox" id="warmupBox">
       <button id="startWarmupBtn">Start sensor timer</button>
@@ -375,6 +376,7 @@
     const trendEl = document.getElementById('trend');
     const updatedEl = document.getElementById('updated');
     const statusEl = document.getElementById('status');
+    const connectionMessageEl = document.getElementById('connectionMessage');
 
     const startWarmupBtn = document.getElementById('startWarmupBtn');
     const cancelWarmupBtn = document.getElementById('cancelWarmupBtn');
@@ -604,8 +606,13 @@
         try {
           const res = await fetch('/api/latest', { cache: 'no-store' });
           const data = await res.json();
-          if (res.ok) applyReading(data);
+          if (res.ok) {
+            connectionMessageEl.hidden = true;
+            applyReading(data);
+          }
           else {
+            connectionMessageEl.textContent = data.message || 'Waiting for LibreLinkUp. Retrying automatically.';
+            connectionMessageEl.hidden = false;
             if (data.lastKnown) applyReading(data.lastKnown);
             showUnavailable('waiting for Libre update');
           }
@@ -629,6 +636,7 @@
 
         if (msg.type === 'glucose') {
           applyReading(msg.data);
+          refreshLatest();
         }
 
         if (msg.type === 'error') {

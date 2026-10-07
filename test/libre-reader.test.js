@@ -18,6 +18,30 @@ test('rejects login responses requiring account attention instead of polling wit
   assert.equal(validateLoginResponse(valid, NOW), valid);
 });
 
+test('rejected login requests pause all upstream traffic for five minutes', async () => {
+  let now = NOW;
+  let logins = 0;
+  let reads = 0;
+  const reader = new LibreReader({
+    client: {
+      clearCache() {},
+      async login() { logins += 1; throw new Error('status 430'); },
+      async fetchConnections() { reads += 1; throw new Error('status 401'); },
+    },
+    now: () => now,
+    logger: { warn() {} },
+  });
+  await assert.rejects(reader.reauthenticate(), /430/);
+  now += 4 * 60_000;
+  await assert.rejects(reader.readLatest(), /430/);
+  assert.equal(logins, 1);
+  assert.equal(reads, 0);
+  now += 60_000;
+  await assert.rejects(reader.readLatest(), /430/);
+  assert.equal(logins, 2);
+  assert.equal(reads, 1);
+});
+
 test('raises an outdated configured LibreLinkUp version to the supported minimum', () => {
   assert.equal(newestVersion('4.16.0', '5.1.1'), '5.1.1');
   assert.equal(newestVersion('5.2.0', '5.1.1'), '5.2.0');
@@ -62,8 +86,12 @@ test('a temporary login failure can recover on the next poll', async () => {
     if (++attempts === 1) throw new Error('temporary login failure');
     authenticated = true;
   };
-  const reader = new LibreReader({ client, now: () => NOW, logger: { warn() {} } });
+  let now = NOW;
+  const reader = new LibreReader({ client, now: () => now, logger: { warn() {} } });
   await assert.rejects(reader.readLatest(), /temporary login failure/);
+  await assert.rejects(reader.readLatest(), /temporary login failure/);
+  assert.equal(attempts, 1, 'login retries back off after failure');
+  now += 15_000;
   assert.equal((await reader.readLatest()).glucose, 125);
   assert.equal(attempts, 2);
 });
