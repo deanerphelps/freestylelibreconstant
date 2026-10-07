@@ -15,6 +15,50 @@ test('raises an outdated configured LibreLinkUp version to the supported minimum
   assert.equal(newestVersion(undefined, '5.1.1'), '5.1.1');
 });
 
+test('expired JWT is removed before immediate login, even within refresh cooldown', async () => {
+  const client = fakeClient({ beforeLogin: connection('9/2/2026 1:58:00 PM', 125) });
+  client.accessToken = 'expired-token';
+  const baseFetch = client.fetchConnections.bind(client);
+  client.fetchConnections = async () => {
+    if (client.accessToken === 'expired-token') {
+      throw new Error('status 401. invalid or expired jwt');
+    }
+    return baseFetch();
+  };
+  const baseLogin = client.login.bind(client);
+  client.login = async () => {
+    assert.equal(client.accessToken, null, 'login must not send the expired token');
+    await baseLogin();
+  };
+  const reader = new LibreReader({
+    client, now: () => NOW,
+    sleep: async () => assert.fail('auth recovery should not delay'),
+    logger: { warn() {} },
+  });
+  reader.lastRefreshAt = NOW;
+  assert.equal((await reader.readLatest()).glucose, 125);
+  assert.equal(client.loginCount, 1);
+});
+
+test('a temporary login failure can recover on the next poll', async () => {
+  const client = fakeClient({ beforeLogin: connection('9/2/2026 1:58:00 PM', 125) });
+  const baseFetch = client.fetchConnections.bind(client);
+  let authenticated = false;
+  client.fetchConnections = async () => {
+    if (!authenticated) throw new Error('status 401. invalid or expired jwt');
+    return baseFetch();
+  };
+  let attempts = 0;
+  client.login = async () => {
+    if (++attempts === 1) throw new Error('temporary login failure');
+    authenticated = true;
+  };
+  const reader = new LibreReader({ client, now: () => NOW, logger: { warn() {} } });
+  await assert.rejects(reader.readLatest(), /temporary login failure/);
+  assert.equal((await reader.readLatest()).glucose, 125);
+  assert.equal(attempts, 2);
+});
+
 function connection(timestamp, glucose = 120, patientId = 'patient-1') {
   return {
     patientId,

@@ -153,6 +153,10 @@ function responseConnections(response) {
   return [];
 }
 
+function isAuthError(error) {
+  return /status 40[13]\b|invalid or expired jwt/i.test(error?.message || '');
+}
+
 export class LibreReader {
   constructor({
     client,
@@ -232,6 +236,9 @@ export class LibreReader {
     if (!this.refreshPromise) {
       this.refreshPromise = (async () => {
         this.client.clearCache();
+        // clearCache() does not clear this library's Authorization header.
+        // Sending the expired bearer token to login can make every retry fail.
+        this.client.accessToken = null;
         await this.client.login();
       })().finally(() => {
         this.refreshPromise = null;
@@ -249,6 +256,13 @@ export class LibreReader {
       reading = await this.readAttempt();
     } catch (error) {
       firstError = error;
+    }
+
+    if (isAuthError(firstError)) {
+      this.logger.warn('Libre session expired; renewing authentication immediately.');
+      await this.reauthenticate();
+      reading = await this.readAttempt();
+      firstError = null;
     }
 
     const isStale = !reading || readingAgeMs(reading, this.now()) > this.staleReadingMs;

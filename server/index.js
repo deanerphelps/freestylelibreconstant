@@ -68,7 +68,16 @@ function broadcast(payload) {
   }
 }
 
-async function pollOnce() {
+let pollPromise = null;
+
+function pollOnce() {
+  if (!pollPromise) {
+    pollPromise = performPoll().finally(() => { pollPromise = null; });
+  }
+  return pollPromise;
+}
+
+async function performPoll() {
   try {
     state.status = 'polling';
 
@@ -104,11 +113,12 @@ async function pollOnce() {
         JSON.stringify(state.history, null, 2)
       );
 
-      broadcast({ type: 'glucose', data: reading });
       console.log('Updated:', reading.glucose, reading.trend);
     } else {
       console.log('No new Libre reading yet.');
     }
+    // A successful retry must restore clients even if the value did not change.
+    broadcast({ type: 'glucose', data: reading });
   } catch (err) {
     state.status = 'error';
     state.lastError = {
@@ -122,11 +132,14 @@ async function pollOnce() {
 }
 
 app.get('/api/latest', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
   if (!state.latest) return res.status(503).json({ error: 'No reading yet', state });
   if (readingAgeMs(state.latest) > STALE_READING_MS) {
     return res.status(503).json({
       error: 'No recent Libre reading',
       timestamp: state.latest.sourceTimestamp || state.latest.timestamp,
+      lastKnown: state.latest,
+      status: state.status,
     });
   }
   res.json(state.latest);
@@ -185,7 +198,6 @@ const server = app.listen(PORT, async () => {
     state.status = 'logged_in';
     await pollOnce();
 
-    setInterval(pollOnce, POLL_MS);
   } catch (err) {
     state.status = 'error';
     state.lastError = {
@@ -195,6 +207,13 @@ const server = app.listen(PORT, async () => {
 
     console.error('[Libre login error]', state.lastError.message);
   }
+  // Keep recovering even when the initial login fails. Scheduling after each
+  // completed attempt prevents overlapping requests during slow upstream calls.
+  const schedulePoll = () => setTimeout(async () => {
+    await pollOnce();
+    schedulePoll();
+  }, state.status === 'error' ? Math.min(POLL_MS, 15_000) : POLL_MS);
+  schedulePoll();
 });
 
 const wss = new WebSocketServer({ server, path: '/ws' });

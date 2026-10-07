@@ -498,6 +498,29 @@
       }
     });
 
+    let lastDisplayedReading = null;
+    let lastChartKey = null;
+    const staleReadingMs = 10 * 60 * 1000;
+
+    function readingDate(reading) {
+      return new Date(reading.sourceTimestamp || reading.timestamp);
+    }
+
+    function refreshFreshness(message = 'waiting for update') {
+      if (!lastDisplayedReading) return showUnavailable(message);
+      const age = Date.now() - readingDate(lastDisplayedReading).getTime();
+      if (!Number.isFinite(age) || age > staleReadingMs) {
+        statusEl.textContent = `stale • ${Math.max(0, Math.floor(age / 60000))} min old`;
+        trendEl.textContent = '⏳';
+        latestGlucoseForCalc = null;
+        latestGlucoseTimestampForCalc = null;
+        calcGlucose.textContent = 'Latest glucose is stale; waiting for a current reading';
+        calcResult.textContent = '';
+      } else {
+        statusEl.textContent = message;
+      }
+    }
+
     function applyReading(reading) {
       const value = reading.glucose ?? reading.value;
 
@@ -508,9 +531,8 @@
         return;
       }
 
-      const ts = reading.timestamp
-        ? new Date(new Date(reading.timestamp).getTime() + (4 * 60 * 60 * 1000))
-        : new Date();
+      const ts = readingDate(reading);
+      lastDisplayedReading = reading;
 
       glucoseEl.textContent = value;
       updateCalcLatest(reading);
@@ -527,6 +549,11 @@
       });
 
       statusEl.textContent = 'live';
+      refreshFreshness('live');
+
+      const chartKey = `${ts.getTime()}:${value}`;
+      if (chartKey === lastChartKey) return;
+      lastChartKey = chartKey;
 
       const label = ts.toLocaleTimeString('en-US', {
         timeZone: DISPLAY_TIME_ZONE,
@@ -546,10 +573,13 @@
     }
 
     function showUnavailable(message = 'no recent data') {
+      if (lastDisplayedReading) return refreshFreshness(message);
       glucoseEl.textContent = '--';
       trendEl.textContent = '⏳';
       updatedEl.textContent = 'No recent data';
       statusEl.textContent = message;
+      latestGlucoseForCalc = null;
+      latestGlucoseTimestampForCalc = null;
     }
 
     async function loadInitial() {
@@ -561,16 +591,29 @@
           history.slice(-120).forEach(applyReading);
         }
 
-        const latestRes = await fetch('/api/latest');
-
-        if (latestRes.ok) {
-          applyReading(await latestRes.json());
-        } else {
-          showUnavailable();
-        }
+        await refreshLatest();
       } catch {
         showUnavailable('offline');
       }
+    }
+
+    let latestRequest = null;
+    function refreshLatest() {
+      if (latestRequest) return latestRequest;
+      latestRequest = (async () => {
+        try {
+          const res = await fetch('/api/latest', { cache: 'no-store' });
+          const data = await res.json();
+          if (res.ok) applyReading(data);
+          else {
+            if (data.lastKnown) applyReading(data.lastKnown);
+            showUnavailable('waiting for Libre update');
+          }
+        } catch {
+          showUnavailable('reconnecting');
+        }
+      })().finally(() => { latestRequest = null; });
+      return latestRequest;
     }
 
     function connectWs() {
@@ -578,7 +621,7 @@
       const ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
       ws.onopen = () => {
-        statusEl.textContent = 'live';
+        refreshLatest();
       };
 
       ws.onmessage = (event) => {
@@ -589,7 +632,7 @@
         }
 
         if (msg.type === 'error') {
-          showUnavailable('no recent data');
+          showUnavailable('retrying Libre connection');
         }
       };
 
@@ -695,6 +738,7 @@
     }
 
     function calculateMealDose() {
+      if (lastDisplayedReading) refreshFreshness(statusEl.textContent);
       const carbs = Number(carbInput.value);
 
       if (!Number.isFinite(carbs) || carbs < 0) {
@@ -728,6 +772,11 @@
 
     loadInitial();
     connectWs();
+    setInterval(refreshLatest, 15000);
+    setInterval(() => refreshFreshness(statusEl.textContent), 15000);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) refreshLatest();
+    });
     renderWarmup();
     warmupTimer = setInterval(renderWarmup, 1000);
   </script>

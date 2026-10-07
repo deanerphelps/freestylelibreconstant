@@ -9,19 +9,29 @@
 <body>
 <div id="g">--</div>
 <div id="t">→</div>
+<div id="status" style="font-size:16px"></div>
 <script>
+let lastKnown = null;
+function showReading(message = '') {
+  const age = lastKnown ? Date.now() - Date.parse(lastKnown.sourceTimestamp || lastKnown.timestamp) : Infinity;
+  const stale = !Number.isFinite(age) || age > 600000;
+  document.getElementById('g').textContent = lastKnown?.glucose ?? '--';
+  document.getElementById('t').textContent = stale ? '⏳' : lastKnown.trend;
+  document.getElementById('status').textContent = lastKnown && stale
+    ? `Last known • ${Math.floor(age / 60000)} min old` : message;
+}
 async function update() {
   try {
-    const res = await fetch('/api/latest');
+    const res = await fetch('/api/latest', { cache: 'no-store' });
     const d = await res.json();
-    document.getElementById('g').textContent = res.ok ? d.glucose : '--';
-    document.getElementById('t').textContent = res.ok ? d.trend : '⏳';
+    lastKnown = res.ok ? d : (d.lastKnown || lastKnown);
+    showReading(res.ok ? 'live' : 'waiting for Libre update');
   } catch {
-    document.getElementById('g').textContent = '--';
-    document.getElementById('t').textContent = '⏳';
+    showReading('reconnecting');
   }
 }
-setInterval(update,30000);
+setInterval(update,15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) update(); });
 update();
 </script>
 </body>
