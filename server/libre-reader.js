@@ -1,5 +1,17 @@
 const DEFAULT_TIME_ZONE = 'America/New_York';
 
+export function validateLoginResponse(response, now = Date.now()) {
+  const ticket = response?.data?.authTicket;
+  if (!ticket?.token || response?.status !== 0) {
+    const status = response?.status ?? 'unknown';
+    throw new Error(`LibreLinkUp login requires account attention (status ${status}; no usable access token). Open LibreLinkUp and complete any sign-in or account prompts.`);
+  }
+  if (ticket.expires && Number(ticket.expires) * 1000 <= now) {
+    throw new Error('LibreLinkUp login returned an already-expired access token.');
+  }
+  return response;
+}
+
 export function newestVersion(configured, minimum) {
   const configuredParts = String(configured || '').split('.').map(Number);
   const minimumParts = String(minimum).split('.').map(Number);

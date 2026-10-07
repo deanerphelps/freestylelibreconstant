@@ -5,9 +5,18 @@ import {
   newestVersion,
   parseLibreLocalTimestamp,
   readingAgeMs,
+  validateLoginResponse,
 } from '../server/libre-reader.js';
 
 const NOW = Date.parse('2026-09-02T18:00:00.000Z');
+
+test('rejects login responses requiring account attention instead of polling with no token', () => {
+  assert.throws(() => validateLoginResponse({ status: 4, data: {} }, NOW), /status 4/);
+  assert.throws(() => validateLoginResponse({ status: 0, data: {} }, NOW), /no usable access token/);
+  assert.throws(() => validateLoginResponse({ status: 0, data: { authTicket: { token: 'expired', expires: NOW / 1000 - 1 } } }, NOW), /already-expired/);
+  const valid = { status: 0, data: { authTicket: { token: 'valid', expires: NOW / 1000 + 60 } } };
+  assert.equal(validateLoginResponse(valid, NOW), valid);
+});
 
 test('raises an outdated configured LibreLinkUp version to the supported minimum', () => {
   assert.equal(newestVersion('4.16.0', '5.1.1'), '5.1.1');

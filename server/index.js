@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { LibreLinkClient } from 'libre-link-unofficial-api';
-import { LibreReader, newestVersion, readingAgeMs } from './libre-reader.js';
+import { LibreReader, newestVersion, readingAgeMs, validateLoginResponse } from './libre-reader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -38,6 +38,12 @@ const client = new LibreLinkClient({
   patientId: process.env.LIBRE_PATIENT_ID || undefined,
   lluVersion: LIBRE_LINK_UP_VERSION,
 });
+
+const login = client.login.bind(client);
+client.login = async () => {
+  client.accessToken = null;
+  return validateLoginResponse(await login());
+};
 
 const libreReader = new LibreReader({
   client,
